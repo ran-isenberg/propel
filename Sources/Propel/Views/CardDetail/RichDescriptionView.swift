@@ -16,14 +16,16 @@ struct RichDescriptionView: View {
         if !text.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
                 // Video embeds
-                ForEach(videoURLs, id: \.absoluteString) { url in
+                ForEach(Array(videoURLs.enumerated()), id: \.offset) { _, url in
                     VideoEmbedView(url: url)
                 }
 
                 // Detected links
                 if !linkURLs.isEmpty {
                     VStack(alignment: .leading, spacing: 4) {
-                        ForEach(linkURLs, id: \.1.absoluteString) { display, url in
+                        ForEach(Array(linkURLs.enumerated()), id: \.offset) { _, item in
+                            let display = item.0
+                            let url = item.1
                             Link(destination: url) {
                                 HStack(spacing: 4) {
                                     Image(systemName: "link")

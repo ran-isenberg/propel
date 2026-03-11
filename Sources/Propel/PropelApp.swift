@@ -73,7 +73,14 @@ struct PropelApp: App {
         }
     }
 
+    @State private var aboutWindow: NSWindow?
+
     private func openAboutWindow() {
+        if let existing = aboutWindow, existing.isVisible {
+            existing.makeKeyAndOrderFront(nil)
+            return
+        }
+
         let aboutView = AboutView()
             .preferredColorScheme(.dark)
 
@@ -84,6 +91,7 @@ struct PropelApp: App {
         window.isReleasedWhenClosed = false
         window.center()
         window.makeKeyAndOrderFront(nil)
+        aboutWindow = window
     }
 }
 

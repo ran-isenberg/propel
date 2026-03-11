@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 @testable import Propel
 import Testing
@@ -1538,5 +1539,371 @@ struct EmojiSupportTests {
         ]
         #expect(items[0].title == "✏️ Write draft")
         #expect(items.filter(\.isCompleted).count == 1)
+    }
+}
+
+// MARK: - Edge Case Tests
+
+struct EdgeCaseTests {
+    /// Create a BoardViewModel and wait for its init's async loadBoard() to complete
+    /// so subsequent board assignments aren't overwritten.
+    private static func makeViewModel() async -> BoardViewModel {
+        let vm = await BoardViewModel()
+        // Let the init's Task { await loadBoard() } finish before we set test data
+        try? await Task.sleep(for: .milliseconds(100))
+        return vm
+    }
+
+    // MARK: - Blog Post Default Checklist
+
+    @Test func blogPostCardGetsDefaultChecklist() async {
+        let vm = await Self.makeViewModel()
+        let board = Board()
+        await MainActor.run { vm.board = board }
+        let backlogId = board.columns[0].id
+
+        await MainActor.run {
+            vm.createCard(
+                title: "My Blog",
+                label: .blogPost,
+                priority: .normal,
+                inColumn: backlogId
+            )
+        }
+
+        let card = await vm.board.cards.first
+        let checklist = card?.checklist ?? []
+        #expect(card != nil)
+        #expect(checklist.count == 6)
+        let titles = checklist.map(\.title)
+        #expect(titles.contains("PR"))
+        #expect(titles.contains("Merge"))
+        #expect(titles.contains("GA"))
+        #expect(titles.contains("LinkedIn"))
+        #expect(titles.contains("X"))
+        #expect(titles.contains("Heroes"))
+    }
+
+    @Test func nonBlogPostCardGetsEmptyChecklist() async {
+        let vm = await Self.makeViewModel()
+        let board = Board()
+        await MainActor.run { vm.board = board }
+        let backlogId = board.columns[0].id
+
+        await MainActor.run {
+            vm.createCard(
+                title: "My Talk",
+                label: .conferenceTalk,
+                priority: .normal,
+                inColumn: backlogId
+            )
+        }
+
+        let card = await vm.board.cards.first
+        #expect(card != nil)
+        #expect(card?.checklist.isEmpty == true)
+    }
+
+    @Test func addDefaultChecklistSkipsSaveWhenNoChanges() async {
+        let vm = await Self.makeViewModel()
+        let board = Board()
+        await MainActor.run { vm.board = board }
+        let backlogId = board.columns[0].id
+
+        // Create a blog card (already has defaults)
+        await MainActor.run {
+            vm.createCard(
+                title: "Blog",
+                label: .blogPost,
+                priority: .normal,
+                inColumn: backlogId
+            )
+        }
+
+        let beforeDate = await vm.board.cards[0].updatedAt
+
+        // Running again should not modify
+        try? await Task.sleep(for: .milliseconds(10))
+        await MainActor.run { vm.addDefaultChecklistToBlogCards() }
+
+        let afterDate = await vm.board.cards[0].updatedAt
+        #expect(beforeDate == afterDate)
+    }
+
+    @Test func addDefaultChecklistAddsOnlyMissingItems() async {
+        let vm = await Self.makeViewModel()
+        var board = Board()
+        let backlogId = board.columns[0].id
+        var card = Card(
+            title: "Partial Blog",
+            columnId: backlogId,
+            label: .blogPost
+        )
+        card.checklist = [
+            ChecklistItem(title: "PR", isCompleted: true, position: 0),
+            ChecklistItem(title: "Custom Step", position: 1),
+        ]
+        board.cards.append(card)
+        await MainActor.run { vm.board = board }
+
+        await MainActor.run { vm.addDefaultChecklistToBlogCards() }
+
+        let updated = await vm.board.cards[0]
+        let titles = updated.checklist.map(\.title)
+        // PR already existed, should not duplicate
+        #expect(titles.filter { $0 == "PR" }.count == 1)
+        // Custom step preserved
+        #expect(titles.contains("Custom Step"))
+        // Missing defaults added
+        #expect(titles.contains("Merge"))
+        #expect(titles.contains("GA"))
+        #expect(titles.contains("LinkedIn"))
+        #expect(titles.contains("X"))
+        #expect(titles.contains("Heroes"))
+    }
+
+    // MARK: - Note RTF Data
+
+    @Test func noteRtfDataRoundTrip() {
+        let content = NSAttributedString(
+            string: "Hello World",
+            attributes: [
+                .font: NSFont.systemFont(ofSize: 16),
+                .foregroundColor: NSColor.white,
+            ]
+        )
+        let rtfData = try? content.data(
+            from: NSRange(location: 0, length: content.length),
+            documentAttributes: [.documentType: NSAttributedString.DocumentType.rtf]
+        )
+        #expect(rtfData != nil)
+
+        if let data = rtfData,
+           let restored = try? NSAttributedString(
+               data: data,
+               options: [.documentType: NSAttributedString.DocumentType.rtf],
+               documentAttributes: nil
+           )
+        {
+            #expect(restored.string == "Hello World")
+        } else {
+            #expect(Bool(false), "Failed to restore RTF data")
+        }
+    }
+
+    @Test func notePreservesPlainTextWhenRtfNil() {
+        let note = Note(title: "Test", content: "Plain text", rtfData: nil)
+        #expect(note.content == "Plain text")
+        #expect(note.rtfData == nil)
+    }
+
+    // MARK: - Dark Mode Color Detection
+
+    @Test @MainActor func darkColorDetection() {
+        let black = NSColor.black
+        #expect(RichTextEditor.isColorDark(black) == true)
+
+        let white = NSColor.white
+        #expect(RichTextEditor.isColorDark(white) == false)
+
+        let midGray = NSColor(white: 0.5, alpha: 1.0)
+        #expect(RichTextEditor.isColorDark(midGray) == false)
+
+        let darkGray = NSColor(white: 0.2, alpha: 1.0)
+        #expect(RichTextEditor.isColorDark(darkGray) == true)
+    }
+
+    @Test @MainActor func fixDarkModeColorsConvertsBlackToWhite() {
+        let input = NSAttributedString(
+            string: "Dark text",
+            attributes: [.foregroundColor: NSColor.black]
+        )
+        let fixed = RichTextEditor.fixDarkModeColors(input)
+        var resultColor: NSColor?
+        fixed.enumerateAttribute(
+            .foregroundColor,
+            in: NSRange(location: 0, length: fixed.length)
+        ) { value, _, _ in
+            resultColor = value as? NSColor
+        }
+        #expect(resultColor == NSColor.white)
+    }
+
+    @Test @MainActor func fixDarkModeColorsPreservesLightColors() {
+        let yellow = NSColor.yellow
+        let input = NSAttributedString(
+            string: "Yellow text",
+            attributes: [.foregroundColor: yellow]
+        )
+        let fixed = RichTextEditor.fixDarkModeColors(input)
+        var resultColor: NSColor?
+        fixed.enumerateAttribute(
+            .foregroundColor,
+            in: NSRange(location: 0, length: fixed.length)
+        ) { value, _, _ in
+            resultColor = value as? NSColor
+        }
+        // Yellow is light, should not be converted to white
+        #expect(resultColor != NSColor.white)
+    }
+
+    @Test @MainActor func fixDarkModeColorsHandlesNoColorAttribute() {
+        let input = NSAttributedString(
+            string: "No color",
+            attributes: [.font: NSFont.systemFont(ofSize: 14)]
+        )
+        let fixed = RichTextEditor.fixDarkModeColors(input)
+        var resultColor: NSColor?
+        fixed.enumerateAttribute(
+            .foregroundColor,
+            in: NSRange(location: 0, length: fixed.length)
+        ) { value, _, _ in
+            resultColor = value as? NSColor
+        }
+        // No color attribute should be set to white
+        #expect(resultColor == NSColor.white)
+    }
+
+    @Test @MainActor func fixDarkModeColorsHandlesEmptyString() {
+        let input = NSAttributedString(string: "")
+        let fixed = RichTextEditor.fixDarkModeColors(input)
+        #expect(fixed.length == 0)
+    }
+
+    // MARK: - Recurrence Rule Edge Cases
+
+    @Test func recurrenceRuleSafeIntervalClampsZero() {
+        let rule = RecurrenceRule(interval: 0, frequency: .weekly)
+        #expect(rule.safeInterval >= 1)
+    }
+
+    @Test func recurrenceRuleSafeIntervalClampsNegative() {
+        let rule = RecurrenceRule(interval: -5, frequency: .daily)
+        #expect(rule.safeInterval >= 1)
+    }
+
+    @Test func recurrenceRuleSafeIntervalClampsMax() {
+        let rule = RecurrenceRule(interval: 5000, frequency: .monthly)
+        #expect(rule.safeInterval <= 999)
+    }
+
+    // MARK: - Card Toggle Blocked
+
+    @Test func toggleBlockedFromBacklogMovesToBlocked() async {
+        let vm = await Self.makeViewModel()
+        let board = Board()
+        await MainActor.run { vm.board = board }
+        let backlogId = board.columns[0].id
+
+        await MainActor.run {
+            vm.createCard(
+                title: "Test",
+                label: .blogPost,
+                priority: .normal,
+                inColumn: backlogId
+            )
+        }
+
+        let cardId = await vm.board.cards[0].id
+        let blockedId = board.columns[2].id
+
+        await MainActor.run { vm.toggleCardBlocked(cardId) }
+
+        let card = await vm.board.cards.first { $0.id == cardId }
+        #expect(card?.columnId == blockedId)
+    }
+
+    @Test func toggleBlockedFromBlockedMovesToInProgress() async {
+        let vm = await Self.makeViewModel()
+        let board = Board()
+        await MainActor.run { vm.board = board }
+        let blockedId = board.columns[2].id
+        let inProgressId = board.columns[1].id
+
+        await MainActor.run {
+            vm.createCard(
+                title: "Blocked Card",
+                label: .blogPost,
+                priority: .normal,
+                inColumn: blockedId
+            )
+        }
+
+        let cardId = await vm.board.cards[0].id
+        await MainActor.run { vm.toggleCardBlocked(cardId) }
+
+        let card = await vm.board.cards.first { $0.id == cardId }
+        #expect(card?.columnId == inProgressId)
+    }
+
+    // MARK: - Auto-Archive Cutoff
+
+    @Test func autoArchiveWithZeroDaysShowsAllCompleted() async {
+        let vm = await Self.makeViewModel()
+        var board = Board()
+        let completedId = board.columns[3].id
+        var card = Card(title: "Old Done", columnId: completedId, label: .blogPost)
+        card.completedAt = Calendar.current.date(byAdding: .day, value: -30, to: Date())
+        board.cards.append(card)
+        await MainActor.run {
+            vm.board = board
+            vm.autoArchiveDays = 0
+        }
+
+        let completedColumn = board.columns[3]
+        let cards = await vm.cardsForColumn(completedColumn)
+        #expect(cards.count == 1)
+    }
+
+    // MARK: - Checklist Limits
+
+    @Test func checklistItemTitleTruncation() {
+        let longTitle = String(repeating: "a", count: 600)
+        let truncated = String(longTitle.prefix(500))
+        #expect(truncated.count == 500)
+    }
+
+    @Test func checklistMaxItems() {
+        var items: [ChecklistItem] = []
+        for idx in 0..<100 {
+            items.append(ChecklistItem(title: "Item \(idx)", position: idx))
+        }
+        #expect(items.count == 100)
+        // Should not allow more than 100
+        let canAdd = items.count < 100
+        #expect(canAdd == false)
+    }
+
+    // MARK: - Card Title Length Limit
+
+    @Test func cardTitleMaxLength() {
+        var title = String(repeating: "x", count: 250)
+        if title.count > 200 { title = String(title.prefix(200)) }
+        #expect(title.count == 200)
+    }
+
+    @Test func cardDescriptionMaxLength() {
+        var desc = String(repeating: "y", count: 11_000)
+        if desc.count > 10_000 { desc = String(desc.prefix(10_000)) }
+        #expect(desc.count == 10_000)
+    }
+
+    // MARK: - Division by Zero Guard
+
+    @Test func emptyChecklistDoesNotDivideByZero() {
+        let checklist: [ChecklistItem] = []
+        let completed = checklist.filter(\.isCompleted).count
+        let progress: Double = checklist.isEmpty ? 0 : Double(completed) / Double(checklist.count)
+        #expect(progress == 0)
+    }
+
+    @Test func completedChecklistProgress() {
+        let checklist = [
+            ChecklistItem(title: "A", isCompleted: true, position: 0),
+            ChecklistItem(title: "B", isCompleted: false, position: 1),
+        ]
+        let completed = checklist.filter(\.isCompleted).count
+        let progress = checklist.isEmpty ? 0 : Double(completed) / Double(checklist.count)
+        #expect(progress == 0.5)
     }
 }

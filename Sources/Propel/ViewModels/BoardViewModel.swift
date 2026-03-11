@@ -331,6 +331,7 @@ final class BoardViewModel {
     }
 
     func addDefaultChecklistToBlogCards() {
+        var didModify = false
         for index in board.cards.indices where board.cards[index].label == .blogPost {
             let existing = Set(board.cards[index].checklist.map(\.title))
             let missing = Self.blogPostDefaultChecklist.filter { !existing.contains($0.title) }
@@ -341,9 +342,12 @@ final class BoardViewModel {
                 }
                 board.cards[index].checklist.append(contentsOf: newItems)
                 board.cards[index].updatedAt = Date()
+                didModify = true
             }
         }
-        scheduleSave()
+        if didModify {
+            scheduleSave()
+        }
     }
 
     func updateCard(_ card: Card) {

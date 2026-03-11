@@ -276,7 +276,10 @@ struct NoteEditorView: View {
     }
 
     private func applyTypedFontSize() {
-        guard let size = Double(fontSizeText), size >= 8, size <= 96 else { return }
+        guard let size = Double(fontSizeText), size >= 8, size <= 96 else {
+            fontSizeText = "16"
+            return
+        }
         setFontSize(CGFloat(size))
     }
 

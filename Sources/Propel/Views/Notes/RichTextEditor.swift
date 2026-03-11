@@ -94,11 +94,9 @@ struct RichTextEditor: NSViewRepresentable {
             let fixed = Self.fixDarkModeColors(attributedText)
             textView.textStorage?.setAttributedString(fixed)
             let newLength = textView.textStorage?.length ?? 0
-            if selectedRange.location <= newLength {
-                let safeLoc = min(selectedRange.location, newLength)
-                let safeLen = min(selectedRange.length, newLength - safeLoc)
-                textView.setSelectedRange(NSRange(location: safeLoc, length: safeLen))
-            }
+            let safeLoc = min(selectedRange.location, newLength)
+            let safeLen = min(selectedRange.length, newLength - safeLoc)
+            textView.setSelectedRange(NSRange(location: safeLoc, length: safeLen))
             context.coordinator.isUpdating = false
         }
     }

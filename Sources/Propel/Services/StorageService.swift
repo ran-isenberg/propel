@@ -137,6 +137,7 @@ actor StorageService {
         storageDir = defaultDir
         boardFileURL = defaultDir.appendingPathComponent("board.json")
         notesFileURL = defaultDir.appendingPathComponent("notes.json")
+        try ensureDirectoryExists()
     }
 
     /// Ensure the storage directory exists.
@@ -194,6 +195,7 @@ actor StorageService {
         let tempURL = directory.appendingPathComponent(UUID().uuidString + ".tmp")
 
         try data.write(to: tempURL, options: .atomic)
+        defer { try? fileManager.removeItem(at: tempURL) }
 
         if fileManager.fileExists(atPath: targetURL.path) {
             let backupURL = targetURL.appendingPathExtension("backup")

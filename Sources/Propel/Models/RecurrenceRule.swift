@@ -5,7 +5,7 @@ struct RecurrenceRule: Codable, Equatable, Sendable {
     var frequency: Frequency
 
     /// Clamped interval to prevent overflow in calendar calculations.
-    private var safeInterval: Int {
+    var safeInterval: Int {
         min(max(interval, 1), 999)
     }
 
