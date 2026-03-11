@@ -8,15 +8,39 @@ enum NavigationTab: String, CaseIterable {
 struct ContentView: View {
     @Environment(BoardViewModel.self) private var boardViewModel
     @State private var activeTab: NavigationTab = .board
+    @State private var isEditingBoardName = false
+    @FocusState private var boardNameFocused: Bool
 
     var body: some View {
         @Bindable var vm = boardViewModel
         VStack(spacing: 0) {
             // Top bar
             HStack {
-                Text("Ran's Board")
-                    .font(.title3.bold())
-                    .foregroundStyle(.primary)
+                if isEditingBoardName {
+                    TextField("Board Name", text: $vm.board.name)
+                        .font(.title3.bold())
+                        .textFieldStyle(.plain)
+                        .fixedSize()
+                        .focused($boardNameFocused)
+                        .onSubmit {
+                            isEditingBoardName = false
+                            boardViewModel.scheduleBoardSave()
+                        }
+                        .onChange(of: boardNameFocused) {
+                            if !boardNameFocused {
+                                isEditingBoardName = false
+                                boardViewModel.scheduleBoardSave()
+                            }
+                        }
+                } else {
+                    Text(boardViewModel.board.name)
+                        .font(.title3.bold())
+                        .foregroundStyle(.primary)
+                        .onTapGesture {
+                            isEditingBoardName = true
+                            boardNameFocused = true
+                        }
+                }
 
                 Spacer()
 

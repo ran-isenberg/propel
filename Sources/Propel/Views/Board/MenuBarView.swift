@@ -2,10 +2,12 @@ import SwiftUI
 
 struct MenuBarView: View {
     @Environment(BoardViewModel.self) private var viewModel
+    @Environment(\.openWindow) private var openWindow
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Ran's Board")
+            Text(viewModel.board.name)
                 .font(.headline)
                 .padding(.horizontal, 12)
                 .padding(.top, 8)
@@ -71,7 +73,7 @@ struct MenuBarView: View {
 
             // Quick actions
             Button {
-                NSApp.activate(ignoringOtherApps: true)
+                activateMainWindow()
             } label: {
                 HStack {
                     Image(systemName: "macwindow")
@@ -83,10 +85,10 @@ struct MenuBarView: View {
             .padding(.horizontal, 12)
 
             Button {
-                NSApp.activate(ignoringOtherApps: true)
                 if let backlog = viewModel.column(for: .backlog) {
                     viewModel.startCreatingCard(inColumn: backlog.id)
                 }
+                activateMainWindow()
             } label: {
                 HStack {
                     Image(systemName: "plus")
@@ -99,6 +101,21 @@ struct MenuBarView: View {
             .padding(.bottom, 8)
         }
         .frame(width: 280)
+    }
+
+    private func activateMainWindow() {
+        dismiss()
+        // Deminiaturize any minimized windows first
+        for window in NSApp.windows where window.isMiniaturized {
+            window.deminiaturize(nil)
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        // Bring the main window to front, or open a new one if none exist
+        if let window = NSApp.windows.first(where: { $0.canBecomeMain }) {
+            window.makeKeyAndOrderFront(nil)
+        } else {
+            openWindow(id: "main")
+        }
     }
 
     private func cardCount(for status: ColumnStatus) -> Int {

@@ -1,8 +1,8 @@
 import Foundation
 
 enum AppInfo {
-    static let version = "1.0.0"
-    static let buildNumber = "1"
+    static let version = "1.0.1"
+    static let buildNumber = "2"
 
     static var buildDate: String {
         // Compile-time date from __DATE__ equivalent

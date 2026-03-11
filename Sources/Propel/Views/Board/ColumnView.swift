@@ -42,6 +42,7 @@ struct ColumnView: View {
                         .font(.system(size: 9, weight: .bold))
                     Text(column.name.uppercased())
                         .font(.system(size: 11, weight: .bold))
+                        .lineLimit(1)
                 }
                 .foregroundStyle(column.status.headerColor)
                 .padding(.horizontal, 10)
@@ -50,6 +51,7 @@ struct ColumnView: View {
                     RoundedRectangle(cornerRadius: 6)
                         .fill(column.status.headerColor.opacity(0.15))
                 )
+                .fixedSize()
 
                 // Card count
                 Text("\(cards.count)")
@@ -66,6 +68,8 @@ struct ColumnView: View {
                         Image(systemName: "ellipsis")
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                            .frame(width: 24, height: 24)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .help("Sort options")
@@ -80,6 +84,8 @@ struct ColumnView: View {
                         Image(systemName: "plus")
                             .font(.system(size: 13, weight: .medium))
                             .foregroundStyle(.secondary)
+                            .frame(width: 24, height: 24)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .help("Add card to \(column.name)")
@@ -121,7 +127,7 @@ struct ColumnView: View {
                 }
             }
         }
-        .frame(maxWidth: isCollapsed ? 50 : .infinity)
+        .frame(minWidth: isCollapsed ? 50 : 160, maxWidth: isCollapsed ? 50 : .infinity)
         .background(
             RoundedRectangle(cornerRadius: 10)
                 .fill(isTargeted

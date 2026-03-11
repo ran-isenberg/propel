@@ -1378,3 +1378,165 @@ struct MenuBarBadgeTests {
         #expect(vm.menuBarBadgeCount == 0)
     }
 }
+
+// MARK: - Emoji Support Tests
+
+@MainActor
+struct EmojiSupportTests {
+    private func makeViewModel() -> BoardViewModel {
+        let vm = BoardViewModel()
+        vm.board = Board()
+        return vm
+    }
+
+    @Test func cardTitleSupportsEmoji() {
+        let vm = makeViewModel()
+        let colId = vm.board.columns[0].id
+        vm.createCard(title: "🚀 Launch Day", label: .blogPost, priority: .urgent, inColumn: colId)
+        let card = vm.board.cards.first
+        #expect(card?.title == "🚀 Launch Day")
+    }
+
+    @Test func cardDescriptionSupportsEmoji() {
+        let vm = makeViewModel()
+        let colId = vm.board.columns[0].id
+        vm.createCard(
+            title: "Test",
+            label: .blogPost,
+            priority: .normal,
+            description: "Need to review 📝 and ship 🎉",
+            inColumn: colId
+        )
+        let card = vm.board.cards.first
+        #expect(card?.description == "Need to review 📝 and ship 🎉")
+    }
+
+    @Test func emojiOnlyTitle() {
+        let vm = makeViewModel()
+        let colId = vm.board.columns[0].id
+        vm.createCard(title: "🎯🔥💡", label: .video, priority: .normal, inColumn: colId)
+        let card = vm.board.cards.first
+        #expect(card?.title == "🎯🔥💡")
+        #expect(card?.title.count == 3)
+    }
+
+    @Test func searchFindsEmojiInTitle() {
+        let vm = makeViewModel()
+        let colId = vm.board.columns[0].id
+        vm.createCard(title: "🚀 Launch", label: .blogPost, priority: .normal, inColumn: colId)
+        vm.createCard(title: "Review PR", label: .blogPost, priority: .normal, inColumn: colId)
+        vm.isSearching = true
+        vm.searchText = "🚀"
+        let results = vm.cardsForColumn(vm.board.columns[0])
+        #expect(results.count == 1)
+        #expect(results.first?.title == "🚀 Launch")
+    }
+
+    @Test func searchFindsEmojiInDescription() {
+        let vm = makeViewModel()
+        let colId = vm.board.columns[0].id
+        vm.createCard(
+            title: "Task",
+            label: .blogPost,
+            priority: .normal,
+            description: "Important 🔥 task",
+            inColumn: colId
+        )
+        vm.createCard(title: "Other", label: .blogPost, priority: .normal, inColumn: colId)
+        vm.isSearching = true
+        vm.searchText = "🔥"
+        let results = vm.cardsForColumn(vm.board.columns[0])
+        #expect(results.count == 1)
+        #expect(results.first?.title == "Task")
+    }
+
+    @Test func emojiCardRoundtripsThroughCodable() throws {
+        let card = Card(
+            title: "📋 Sprint Review",
+            description: "Check all items ✅ and fix bugs 🐛",
+            columnId: UUID(),
+            label: .conferenceTalk,
+            priority: .urgent,
+            checklist: [
+                ChecklistItem(title: "🎨 Design review", isCompleted: true, position: 0),
+                ChecklistItem(title: "🧪 Testing", isCompleted: false, position: 1)
+            ]
+        )
+
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let data = try encoder.encode(card)
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let decoded = try decoder.decode(Card.self, from: data)
+
+        #expect(decoded.title == "📋 Sprint Review")
+        #expect(decoded.description == "Check all items ✅ and fix bugs 🐛")
+        #expect(decoded.checklist[0].title == "🎨 Design review")
+        #expect(decoded.checklist[1].title == "🧪 Testing")
+    }
+
+    @Test func noteTitleAndContentSupportEmoji() {
+        let note = Note(title: "📓 Daily Log")
+        #expect(note.title == "📓 Daily Log")
+
+        var updated = note
+        updated.content = "Today I worked on 🚀 deployment and 🐛 bug fixes"
+        #expect(updated.content.contains("🚀"))
+        #expect(updated.content.contains("🐛"))
+    }
+
+    @Test func noteSearchFindsEmoji() {
+        let vm = NotesViewModel()
+        vm.store = NotesStore()
+
+        var note1 = Note(title: "🎯 Goals")
+        note1.content = "Ship v2"
+        vm.store.notes.append(note1)
+
+        var note2 = Note(title: "Meeting")
+        note2.content = "Regular meeting"
+        vm.store.notes.append(note2)
+
+        vm.searchText = "🎯"
+        #expect(vm.filteredNotes.count == 1)
+        #expect(vm.filteredNotes.first?.title == "🎯 Goals")
+    }
+
+    @Test func mixedEmojiAndTextTrimming() {
+        let input = "  🚀 Launch Day  "
+        let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        #expect(trimmed == "🚀 Launch Day")
+        #expect(!trimmed.isEmpty)
+    }
+
+    @Test func complexEmojiSequences() throws {
+        let card = Card(
+            title: "👨‍👩‍👧‍👦 Family feature 🏳️‍🌈",
+            description: "Support for 🇺🇸 flag emojis and 👍🏽 skin tones",
+            columnId: UUID(),
+            label: .blogPost
+        )
+
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let data = try encoder.encode(card)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let decoded = try decoder.decode(Card.self, from: data)
+
+        #expect(decoded.title == "👨‍👩‍👧‍👦 Family feature 🏳️‍🌈")
+        #expect(decoded.description == "Support for 🇺🇸 flag emojis and 👍🏽 skin tones")
+    }
+
+    @Test func checklistItemsWithEmoji() {
+        let items = [
+            ChecklistItem(title: "✏️ Write draft", isCompleted: true, position: 0),
+            ChecklistItem(title: "🎨 Create graphics", isCompleted: false, position: 1),
+            ChecklistItem(title: "📤 Publish", isCompleted: false, position: 2)
+        ]
+        #expect(items[0].title == "✏️ Write draft")
+        #expect(items.filter(\.isCompleted).count == 1)
+    }
+}

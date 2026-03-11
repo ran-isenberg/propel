@@ -64,6 +64,10 @@ final class BoardViewModel {
         }
     }
 
+    func scheduleBoardSave() {
+        scheduleSave()
+    }
+
     private func scheduleSave() {
         board.updatedAt = Date()
         debouncedSave?.schedule()
@@ -300,6 +304,7 @@ final class BoardViewModel {
     func createCard(title: String, label: Label, priority: Priority, description: String = "", dueDate: Date? = nil, inColumn columnId: UUID) {
         let card = Card(
             title: title,
+            description: description,
             columnId: columnId,
             label: label,
             priority: priority,

@@ -36,7 +36,7 @@ struct FilterBar: View {
                         .tag(Priority?.some(priority))
                 }
             }
-            .frame(width: 140)
+            .frame(width: 160)
 
             if viewModel.isFilterActive {
                 Button("Clear") {
