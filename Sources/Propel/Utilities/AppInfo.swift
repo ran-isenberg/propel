@@ -1,8 +1,8 @@
 import Foundation
 
 enum AppInfo {
-    static let version = "1.0.1"
-    static let buildNumber = "2"
+    static let version = "1.1.0"
+    static let buildNumber = "3"
 
     static var buildDate: String {
         // Compile-time date from __DATE__ equivalent
@@ -20,9 +20,20 @@ enum AppInfo {
     }
 
     static let copyright = "Copyright (c) 2026 Ran Isenberg"
-    // swiftlint:disable:next force_unwrapping
-    static let websiteURL = URL(string: "https://ranthebuilder.cloud")!
-    // swiftlint:disable:next force_unwrapping
-    static let githubURL = URL(string: "https://github.com/ran-isenberg")!
+
+    static let websiteURL: URL = {
+        guard let url = URL(string: "https://ranthebuilder.cloud") else {
+            return URL(fileURLWithPath: "/")
+        }
+        return url
+    }()
+
+    static let githubURL: URL = {
+        guard let url = URL(string: "https://github.com/ran-isenberg") else {
+            return URL(fileURLWithPath: "/")
+        }
+        return url
+    }()
+
     static let license = "MIT License - Copyright (c) 2026 Ran Isenberg"
 }

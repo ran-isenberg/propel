@@ -1,5 +1,4 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 @main
 struct PropelApp: App {
@@ -30,18 +29,6 @@ struct PropelApp: App {
             CommandGroup(after: .newItem) {
                 Divider()
 
-                Button("Import Board...") {
-                    importBoard()
-                }
-                .keyboardShortcut("i", modifiers: [.command, .shift])
-
-                Button("Export Board...") {
-                    exportBoard()
-                }
-                .keyboardShortcut("e", modifiers: [.command, .shift])
-
-                Divider()
-
                 Button("Change Storage Folder...") {
                     changeStorageFolder()
                 }
@@ -69,36 +56,11 @@ struct PropelApp: App {
         .menuBarExtraStyle(.window)
     }
 
-    private func importBoard() {
-        let panel = NSOpenPanel()
-        panel.title = "Import Board"
-        panel.allowedContentTypes = [.json]
-        panel.allowsMultipleSelection = false
-        panel.canChooseDirectories = false
-
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-
-        Task {
-            await boardViewModel.importBoard(from: url)
-        }
-    }
-
-    private func exportBoard() {
-        let panel = NSSavePanel()
-        panel.title = "Export Board"
-        panel.allowedContentTypes = [.json]
-        panel.nameFieldStringValue = "board.json"
-
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-
-        Task {
-            await boardViewModel.exportBoard(to: url)
-        }
-    }
-
     private func changeStorageFolder() {
         let panel = NSOpenPanel()
-        panel.title = "Choose Storage Folder"
+        panel.title = "Grant Storage Access"
+        panel.message = "Propel needs permission to read and write data in the folder you select. Choose a folder for your board and notes storage."
+        panel.prompt = "Grant Access"
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.canCreateDirectories = true

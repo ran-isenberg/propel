@@ -45,7 +45,7 @@ struct WeeklyReviewView: View {
                                 ReviewCardRow(card: card) {
                                     if let completedAt = card.completedAt {
                                         Text("Completed \(completedAt, style: .relative) ago")
-                                            .font(.system(size: 10))
+                                            .font(.system(size: 12))
                                             .foregroundStyle(.secondary)
                                     }
                                 }
@@ -60,7 +60,7 @@ struct WeeklyReviewView: View {
                                 ReviewCardRow(card: card) {
                                     if let dueDate = card.dueDate {
                                         Text("Due \(dueDate, style: .relative) ago")
-                                            .font(.system(size: 10))
+                                            .font(.system(size: 12))
                                             .foregroundStyle(.red)
                                     }
                                 }
@@ -79,7 +79,7 @@ struct WeeklyReviewView: View {
                                 ReviewCardRow(card: card) {
                                     if let dueDate = card.dueDate {
                                         Text("Due \(dueDate, style: .date)")
-                                            .font(.system(size: 10))
+                                            .font(.system(size: 12))
                                             .foregroundStyle(.secondary)
                                     }
                                 }

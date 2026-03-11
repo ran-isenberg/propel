@@ -11,7 +11,8 @@ let package = Package(
             name: "Propel",
             path: "Sources/Propel",
             resources: [
-                .copy("Resources/AppIcon.icns")
+                .copy("Resources/AppIcon.icns"),
+                .copy("Resources/Propel.entitlements")
             ]
         ),
         .testTarget(

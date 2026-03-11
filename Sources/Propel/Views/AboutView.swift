@@ -5,7 +5,7 @@ struct AboutView: View {
         VStack(spacing: 16) {
             // App icon
             Image(systemName: "rectangle.split.3x1.fill")
-                .font(.system(size: 48))
+                .font(.system(size: 50))
                 .foregroundStyle(
                     LinearGradient(
                         colors: [.blue, .purple],

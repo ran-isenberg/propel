@@ -58,6 +58,7 @@ final class BoardViewModel {
     func loadBoard() async {
         do {
             board = try await StorageService.shared.loadBoard()
+            addDefaultChecklistToBlogCards()
         } catch {
             errorMessage = "Failed to load board: \(error.localizedDescription)"
             board = Board()
@@ -265,6 +266,7 @@ final class BoardViewModel {
         notificationCheckTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(3_600))
+                guard !Task.isCancelled else { return }
                 await self?.checkDueDateNotifications()
             }
         }
@@ -301,19 +303,46 @@ final class BoardViewModel {
 
     // MARK: - Card CRUD
 
+    private static let blogPostDefaultChecklist: [ChecklistItem] = [
+        ChecklistItem(title: "PR", position: 0),
+        ChecklistItem(title: "Merge", position: 1),
+        ChecklistItem(title: "GA", position: 2),
+        ChecklistItem(title: "LinkedIn", position: 3),
+        ChecklistItem(title: "X", position: 4),
+        ChecklistItem(title: "Heroes", position: 5),
+    ]
+
     func createCard(title: String, label: Label, priority: Priority, description: String = "", dueDate: Date? = nil, inColumn columnId: UUID) {
+        let checklist = label == .blogPost ? Self.blogPostDefaultChecklist : []
         let card = Card(
             title: title,
             description: description,
             columnId: columnId,
             label: label,
             priority: priority,
-            dueDate: dueDate
+            dueDate: dueDate,
+            checklist: checklist
         )
         board.cards.append(card)
         isCreatingCard = false
         creationTargetColumnId = nil
         selectedCardId = card.id
+        scheduleSave()
+    }
+
+    func addDefaultChecklistToBlogCards() {
+        for index in board.cards.indices where board.cards[index].label == .blogPost {
+            let existing = Set(board.cards[index].checklist.map(\.title))
+            let missing = Self.blogPostDefaultChecklist.filter { !existing.contains($0.title) }
+            if !missing.isEmpty {
+                let startPos = (board.cards[index].checklist.map(\.position).max() ?? -1) + 1
+                let newItems = missing.enumerated().map { offset, item in
+                    ChecklistItem(title: item.title, position: startPos + offset)
+                }
+                board.cards[index].checklist.append(contentsOf: newItems)
+                board.cards[index].updatedAt = Date()
+            }
+        }
         scheduleSave()
     }
 
@@ -454,26 +483,7 @@ final class BoardViewModel {
         selectedCardId != nil || isCreatingCard
     }
 
-    // MARK: - Import / Export / Storage
-
-    func importBoard(from url: URL) async {
-        do {
-            board = try await StorageService.shared.importBoard(from: url)
-            selectedCardId = nil
-            isCreatingCard = false
-            creationTargetColumnId = nil
-        } catch {
-            errorMessage = "Failed to import board: \(error.localizedDescription)"
-        }
-    }
-
-    func exportBoard(to url: URL) async {
-        do {
-            try await StorageService.shared.exportBoard(to: url)
-        } catch {
-            errorMessage = "Failed to export board: \(error.localizedDescription)"
-        }
-    }
+    // MARK: - Storage
 
     func changeStorageFolder(to url: URL) async {
         do {

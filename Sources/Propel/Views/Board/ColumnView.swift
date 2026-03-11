@@ -31,7 +31,7 @@ struct ColumnView: View {
                     }
                 } label: {
                     Image(systemName: isCollapsed ? "chevron.right" : "chevron.down")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
@@ -39,9 +39,9 @@ struct ColumnView: View {
                 // Status pill badge
                 HStack(spacing: 5) {
                     Image(systemName: column.status.headerIcon)
-                        .font(.system(size: 9, weight: .bold))
-                    Text(column.name.uppercased())
                         .font(.system(size: 11, weight: .bold))
+                    Text(column.name.uppercased())
+                        .font(.system(size: 13, weight: .bold))
                         .lineLimit(1)
                 }
                 .foregroundStyle(column.status.headerColor)
@@ -55,7 +55,7 @@ struct ColumnView: View {
 
                 // Card count
                 Text("\(cards.count)")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(.secondary)
 
                 Spacer()
@@ -82,7 +82,7 @@ struct ColumnView: View {
                         viewModel.startCreatingCard(inColumn: column.id)
                     } label: {
                         Image(systemName: "plus")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.system(size: 15, weight: .medium))
                             .foregroundStyle(.secondary)
                             .frame(width: 24, height: 24)
                             .contentShape(Rectangle())
@@ -111,9 +111,9 @@ struct ColumnView: View {
                             } label: {
                                 HStack(spacing: 4) {
                                     Image(systemName: "plus")
-                                        .font(.system(size: 12))
+                                        .font(.system(size: 14))
                                     Text("Add Task")
-                                        .font(.system(size: 12))
+                                        .font(.system(size: 14))
                                 }
                                 .foregroundStyle(.secondary)
                                 .frame(maxWidth: .infinity)

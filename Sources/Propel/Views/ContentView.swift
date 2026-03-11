@@ -181,6 +181,7 @@ struct ContentView: View {
                 CardCreationPanel(targetColumnId: columnId)
             } else if let cardId = boardViewModel.selectedCardId {
                 CardDetailPanel(cardId: cardId)
+                    .id(cardId)
             }
         }
         .background(Color(nsColor: .controlBackgroundColor))

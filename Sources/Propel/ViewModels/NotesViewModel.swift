@@ -94,17 +94,6 @@ final class NotesViewModel {
         scheduleSave()
     }
 
-    // MARK: - Import / Export
-
-    func importNotes(from url: URL) async {
-        do {
-            store = try await StorageService.shared.importNotes(from: url)
-            selectedNoteId = nil
-        } catch {
-            errorMessage = "Failed to import notes: \(error.localizedDescription)"
-        }
-    }
-
     func reloadFromStorage() async {
         await loadNotes()
     }

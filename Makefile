@@ -8,6 +8,7 @@ APP_BUNDLE = $(RELEASE_DIR)/$(APP_NAME).app
 DMG_NAME = $(APP_NAME).dmg
 INSTALL_DIR = /Applications
 ICON_SRC = Sources/Propel/Resources/AppIcon.icns
+ENTITLEMENTS = Sources/Propel/Resources/Propel.entitlements
 BIN_PATH = $(shell swift build -c release --show-bin-path 2>/dev/null)
 
 .PHONY: build build-release run test clean install uninstall dmg app-bundle check-tools generate-icon help lint format check
@@ -61,6 +62,7 @@ run: build ## Build and run the app
 		-c "Add :LSMinimumSystemVersion string 14.0" \
 		-c "Add :NSHighResolutionCapable bool true" \
 		"$(DEBUG_APP)/Contents/Info.plist"
+	@codesign --force --sign - --entitlements "$(ENTITLEMENTS)" "$(DEBUG_APP)"
 	@open "$(DEBUG_APP)"
 
 test: check-tools ## Run tests
@@ -85,6 +87,7 @@ app-bundle: build-release ## Create Propel.app bundle
 		-c "Add :NSHighResolutionCapable bool true" \
 		-c "Add :NSSupportsAutomaticTermination bool true" \
 		"$(APP_BUNDLE)/Contents/Info.plist"
+	@codesign --force --sign - --entitlements "$(ENTITLEMENTS)" "$(APP_BUNDLE)"
 	@echo "Created $(APP_BUNDLE)"
 
 dmg: app-bundle ## Create .dmg installer

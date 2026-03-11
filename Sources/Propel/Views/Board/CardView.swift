@@ -12,7 +12,7 @@ struct CardView: View {
         VStack(alignment: .leading, spacing: 0) {
             // Title
             Text(card.title)
-                .font(.system(size: 13, weight: .medium))
+                .font(.system(size: 15, weight: .medium))
                 .lineLimit(2)
                 .foregroundStyle(.primary)
                 .padding(.bottom, 2)
@@ -20,7 +20,7 @@ struct CardView: View {
             // Subtitle: column name
             if let col = viewModel.board.columns.first(where: { $0.id == card.columnId }) {
                 Text("In \(col.name)")
-                    .font(.system(size: 10))
+                    .font(.system(size: 12))
                     .foregroundStyle(.tertiary)
                     .padding(.bottom, 8)
             }
@@ -37,11 +37,11 @@ struct CardView: View {
                 if let dueDate = card.dueDate {
                     let isOverdue = dueDate < Date()
                     Text(dueDate, style: .date)
-                        .font(.system(size: 11))
+                        .font(.system(size: 13))
                         .foregroundStyle(isOverdue ? .red : .secondary)
                 } else {
                     Text("-")
-                        .font(.system(size: 11))
+                        .font(.system(size: 13))
                         .foregroundStyle(.tertiary)
                 }
             }
@@ -60,7 +60,7 @@ struct CardView: View {
             if card.isRecurring {
                 CardPropertyRow(icon: "arrow.triangle.2.circlepath") {
                     Text("Recurring")
-                        .font(.system(size: 10))
+                        .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -76,8 +76,8 @@ struct CardView: View {
                 .stroke(
                     isSelected
                         ? Color.accentColor
-                        : Color(nsColor: .separatorColor).opacity(0.3),
-                    lineWidth: isSelected ? 2 : 0.5
+                        : Color.gray.opacity(0.4),
+                    lineWidth: isSelected ? 2 : 1
                 )
         )
         .contentShape(Rectangle())
@@ -96,7 +96,7 @@ struct CardPropertyRow<Content: View>: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.system(size: 10))
+                .font(.system(size: 12))
                 .foregroundStyle(.tertiary)
                 .frame(width: 14, alignment: .center)
             content()
@@ -113,7 +113,7 @@ struct LabelBadge: View {
 
     var body: some View {
         Text(label.rawValue)
-            .font(.system(size: 10, weight: .semibold))
+            .font(.system(size: 12, weight: .semibold))
             .foregroundStyle(label.swiftUIColor)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
@@ -136,9 +136,9 @@ struct PriorityBadge: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: "flag.fill")
-                .font(.system(size: 9))
+                .font(.system(size: 11))
             Text(priority.displayName)
-                .font(.system(size: 11, weight: .medium))
+                .font(.system(size: 13, weight: .medium))
         }
         .foregroundStyle(badgeColor)
     }
@@ -162,7 +162,7 @@ struct ChecklistProgressView: View {
     }
 
     private var progress: Double {
-        Double(completed) / Double(checklist.count)
+        checklist.isEmpty ? 0 : Double(completed) / Double(checklist.count)
     }
 
     private var percentage: Int {
@@ -177,7 +177,7 @@ struct ChecklistProgressView: View {
                 .tint(progress == 1.0 ? .green : .accentColor)
 
             Text("\(percentage)%")
-                .font(.system(size: 10, weight: .medium))
+                .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(.secondary)
                 .frame(width: 30, alignment: .trailing)
         }

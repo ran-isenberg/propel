@@ -55,10 +55,13 @@ struct ChecklistEditor: View {
         }
     }
 
+    private static let maxChecklistItems = 100
+
     private func addItem() {
         let title = newItemTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !title.isEmpty else { return }
-        let item = ChecklistItem(title: title, position: checklist.count)
+        guard !title.isEmpty, checklist.count < Self.maxChecklistItems else { return }
+        let trimmedTitle = String(title.prefix(500))
+        let item = ChecklistItem(title: trimmedTitle, position: checklist.count)
         checklist.append(item)
         newItemTitle = ""
     }

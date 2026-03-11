@@ -84,7 +84,10 @@ private struct CardDetailContent: View {
                 TextField("Title", text: $title)
                     .font(.title2.bold())
                     .textFieldStyle(.plain)
-                    .onChange(of: title) { saveChanges() }
+                    .onChange(of: title) {
+                        if title.count > 200 { title = String(title.prefix(200)) }
+                        saveChanges()
+                    }
 
                 Divider()
 
@@ -201,7 +204,10 @@ private struct CardDetailContent: View {
                         RoundedRectangle(cornerRadius: 6)
                             .fill(Color(nsColor: .textBackgroundColor).opacity(0.5))
                     )
-                    .onChange(of: description) { saveChanges() }
+                    .onChange(of: description) {
+                        if description.count > 10_000 { description = String(description.prefix(10_000)) }
+                        saveChanges()
+                    }
 
                 // Rich content: clickable links and video embeds
                 RichDescriptionView(text: description)
@@ -240,7 +246,7 @@ private struct CardDetailContent: View {
         updated.checklist = checklist
         updated.isRecurring = isRecurring
         if isRecurring {
-            updated.recurrenceRule = RecurrenceRule(interval: max(1, recurrenceInterval), frequency: recurrenceFrequency)
+            updated.recurrenceRule = RecurrenceRule(interval: min(max(1, recurrenceInterval), 999), frequency: recurrenceFrequency)
         } else {
             updated.recurrenceRule = nil
         }

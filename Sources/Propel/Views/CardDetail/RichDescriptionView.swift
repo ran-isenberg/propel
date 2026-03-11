@@ -54,7 +54,7 @@ struct RichDescriptionView: View {
     }
 
     private func extractVideoURLs(from text: String) -> [URL] {
-        let pattern = #"https?://(?:www\.)?(?:youtube\.com/watch\?v=|youtu\.be/|vimeo\.com/)[\w\-]+"#
+        let pattern = #"https://(?:www\.)?(?:youtube\.com/watch\?v=|youtu\.be/|vimeo\.com/)[\w\-]+"#
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
         let range = NSRange(text.startIndex..., in: text)
         return regex.matches(in: text, range: range).compactMap { match in
@@ -63,14 +63,19 @@ struct RichDescriptionView: View {
         }
     }
 
+    private static let allowedSchemes: Set<String> = ["https"]
+
     private func extractLinks(from text: String) -> [(String, URL)] {
-        let pattern = #"https?://[^\s<>\"\)]+"#
+        let pattern = #"https://[^\s<>\"\)]+"#
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
         let range = NSRange(text.startIndex..., in: text)
         return regex.matches(in: text, range: range).compactMap { match in
             guard let range = Range(match.range, in: text) else { return nil }
             let urlString = String(text[range])
-            guard let url = URL(string: urlString) else { return nil }
+            guard let url = URL(string: urlString),
+                  let scheme = url.scheme?.lowercased(),
+                  Self.allowedSchemes.contains(scheme)
+            else { return nil }
             // Trim to display domain + path
             let display = url.host.map { host in
                 let path = url.path.count > 1 ? url.path.prefix(30) : ""
@@ -96,7 +101,7 @@ struct VideoEmbedView: View {
                 URLComponents(url: url, resolvingAgainstBaseURL: false)?
                     .queryItems?.first(where: { $0.name == "v" })?.value
             }
-            if let id = videoId {
+            if let id = videoId, id.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }) {
                 return URL(string: "https://img.youtube.com/vi/\(id)/mqdefault.jpg")
             }
         }

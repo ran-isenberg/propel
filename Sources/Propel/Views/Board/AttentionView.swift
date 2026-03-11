@@ -92,7 +92,7 @@ struct AttentionCardView: View {
                     .fill(statusColor)
                     .frame(width: 6, height: 6)
                 Text(statusText)
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(statusColor)
                     .textCase(.uppercase)
             }
@@ -103,7 +103,7 @@ struct AttentionCardView: View {
 
             if let due = card.dueDate {
                 Text(due, style: .date)
-                    .font(.system(size: 9))
+                    .font(.system(size: 11))
                     .foregroundStyle(.secondary)
             }
         }

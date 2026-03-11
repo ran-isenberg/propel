@@ -138,7 +138,7 @@ private struct MenuBarStat: View {
             Text("\(count)")
                 .font(.caption.bold())
             Text(label)
-                .font(.system(size: 8))
+                .font(.system(size: 10))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)

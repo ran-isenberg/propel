@@ -30,6 +30,9 @@ struct CardCreationPanel: View {
                         .foregroundStyle(.secondary)
                     TextField("Card title", text: $title)
                         .textFieldStyle(.roundedBorder)
+                        .onChange(of: title) {
+                            if title.count > 200 { title = String(title.prefix(200)) }
+                        }
                 }
 
                 // Label (required)
@@ -81,6 +84,9 @@ struct CardCreationPanel: View {
                             RoundedRectangle(cornerRadius: 6)
                                 .fill(Color(nsColor: .textBackgroundColor).opacity(0.5))
                         )
+                        .onChange(of: description) {
+                            if description.count > 10_000 { description = String(description.prefix(10_000)) }
+                        }
                 }
 
                 // Due Date (optional)
