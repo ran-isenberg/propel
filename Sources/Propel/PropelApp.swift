@@ -18,7 +18,7 @@ struct PropelApp: App {
                     appDelegate.boardViewModel = boardViewModel
                 }
         }
-        .defaultSize(width: 1200, height: 700)
+        .defaultSize(width: 1_200, height: 700)
         .commands {
             CommandGroup(replacing: .appInfo) {
                 Button("About Propel") {
@@ -134,14 +134,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
             // Ctrl+Shift+N: Quick capture
-            if event.modifierFlags.contains([.control, .shift]) && event.keyCode == 45 { // N key
+            if event.modifierFlags.contains([.control, .shift]), event.keyCode == 45 { // N key
                 Task { @MainActor in
                     self?.quickCapture()
                 }
             }
         }
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            if event.modifierFlags.contains([.control, .shift]) && event.keyCode == 45 {
+            if event.modifierFlags.contains([.control, .shift]), event.keyCode == 45 {
                 Task { @MainActor in
                     self?.quickCapture()
                 }

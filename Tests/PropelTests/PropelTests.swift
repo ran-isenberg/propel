@@ -1,10 +1,9 @@
 import Foundation
-import Testing
 @testable import Propel
+import Testing
 
 // MARK: - Board Tests
 
-@Suite("Board")
 struct BoardTests {
     @Test func initializesWithDefaultColumns() {
         let board = Board()
@@ -50,7 +49,7 @@ struct BoardTests {
         mutableBoard.cards = [
             Card(title: "Card 1", columnId: backlogId, label: .blogPost),
             Card(title: "Card 2", columnId: backlogId, label: .video),
-            Card(title: "Card 3", columnId: inProgressId, label: .podcast),
+            Card(title: "Card 3", columnId: inProgressId, label: .podcast)
         ]
         let backlogCards = mutableBoard.cardsForColumn(mutableBoard.columns[0])
         let inProgressCards = mutableBoard.cardsForColumn(mutableBoard.columns[1])
@@ -66,7 +65,7 @@ struct BoardTests {
         mutableBoard.cards = [
             Card(title: "Low", columnId: colId, label: .blogPost, priority: .low),
             Card(title: "Urgent", columnId: colId, label: .blogPost, priority: .urgent),
-            Card(title: "Normal", columnId: colId, label: .blogPost, priority: .normal),
+            Card(title: "Normal", columnId: colId, label: .blogPost, priority: .normal)
         ]
         let sorted = mutableBoard.cardsForColumn(mutableBoard.columns[0])
         #expect(sorted[0].title == "Urgent")
@@ -74,17 +73,17 @@ struct BoardTests {
         #expect(sorted[2].title == "Low")
     }
 
-    @Test func cardsForColumnSortsByDueDateWithinSamePriority() {
+    @Test func cardsForColumnSortsByDueDateWithinSamePriority() throws {
         let board = Board()
         let colId = board.columns[0].id
         let now = Date()
-        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: now)!
-        let nextWeek = Calendar.current.date(byAdding: .day, value: 7, to: now)!
+        let tomorrow = try #require(Calendar.current.date(byAdding: .day, value: 1, to: now))
+        let nextWeek = try #require(Calendar.current.date(byAdding: .day, value: 7, to: now))
         var mutableBoard = board
         mutableBoard.cards = [
             Card(title: "Next week", columnId: colId, label: .blogPost, priority: .normal, dueDate: nextWeek),
             Card(title: "Tomorrow", columnId: colId, label: .blogPost, priority: .normal, dueDate: tomorrow),
-            Card(title: "Today", columnId: colId, label: .blogPost, priority: .normal, dueDate: now),
+            Card(title: "Today", columnId: colId, label: .blogPost, priority: .normal, dueDate: now)
         ]
         let sorted = mutableBoard.cardsForColumn(mutableBoard.columns[0])
         #expect(sorted[0].title == "Today")
@@ -99,7 +98,7 @@ struct BoardTests {
         var mutableBoard = board
         mutableBoard.cards = [
             Card(title: "No date", columnId: colId, label: .blogPost, priority: .normal, dueDate: nil),
-            Card(title: "Has date", columnId: colId, label: .blogPost, priority: .normal, dueDate: now),
+            Card(title: "Has date", columnId: colId, label: .blogPost, priority: .normal, dueDate: now)
         ]
         let sorted = mutableBoard.cardsForColumn(mutableBoard.columns[0])
         #expect(sorted[0].title == "Has date")
@@ -115,7 +114,6 @@ struct BoardTests {
 
 // MARK: - Card Tests
 
-@Suite("Card")
 struct CardTests {
     @Test func initializesWithDefaults() {
         let colId = UUID()
@@ -128,11 +126,11 @@ struct CardTests {
         #expect(card.checklist.isEmpty)
         #expect(card.isRecurring == false)
         #expect(card.recurrenceRule == nil)
-        #expect(card.description == "")
+        #expect(card.description.isEmpty)
         #expect(card.completedAt == nil)
     }
 
-    @Test func createRecurringInstanceCopiesFields() {
+    @Test func createRecurringInstanceCopiesFields() throws {
         let colId = UUID()
         let backlogId = UUID()
         let card = Card(
@@ -144,12 +142,12 @@ struct CardTests {
             dueDate: Date(),
             checklist: [
                 ChecklistItem(title: "Step 1", isCompleted: true, position: 0),
-                ChecklistItem(title: "Step 2", isCompleted: true, position: 1),
+                ChecklistItem(title: "Step 2", isCompleted: true, position: 1)
             ],
             isRecurring: true,
             recurrenceRule: RecurrenceRule(interval: 1, frequency: .weekly)
         )
-        let newCard = card.createRecurringInstance(inColumn: backlogId)!
+        let newCard = try #require(card.createRecurringInstance(inColumn: backlogId))
         #expect(newCard.id != card.id)
         #expect(newCard.title == "Weekly review")
         #expect(newCard.description == "Review all tasks")
@@ -160,7 +158,7 @@ struct CardTests {
         #expect(newCard.recurrenceRule == card.recurrenceRule)
     }
 
-    @Test func createRecurringInstanceResetsChecklist() {
+    @Test func createRecurringInstanceResetsChecklist() throws {
         let colId = UUID()
         let card = Card(
             title: "Task",
@@ -169,12 +167,12 @@ struct CardTests {
             dueDate: Date(),
             checklist: [
                 ChecklistItem(title: "Done item", isCompleted: true, position: 0),
-                ChecklistItem(title: "Also done", isCompleted: true, position: 1),
+                ChecklistItem(title: "Also done", isCompleted: true, position: 1)
             ],
             isRecurring: true,
             recurrenceRule: RecurrenceRule(interval: 1, frequency: .daily)
         )
-        let newCard = card.createRecurringInstance(inColumn: UUID())!
+        let newCard = try #require(card.createRecurringInstance(inColumn: UUID()))
         #expect(newCard.checklist.count == 2)
         #expect(newCard.checklist[0].isCompleted == false)
         #expect(newCard.checklist[1].isCompleted == false)
@@ -184,7 +182,7 @@ struct CardTests {
         #expect(newCard.checklist[0].id != card.checklist[0].id)
     }
 
-    @Test func createRecurringInstanceCalculatesNewDueDate() {
+    @Test func createRecurringInstanceCalculatesNewDueDate() throws {
         let colId = UUID()
         let dueDate = Date()
         let card = Card(
@@ -195,8 +193,8 @@ struct CardTests {
             isRecurring: true,
             recurrenceRule: RecurrenceRule(interval: 1, frequency: .monthly)
         )
-        let newCard = card.createRecurringInstance(inColumn: UUID())!
-        let expected = Calendar.current.date(byAdding: .month, value: 1, to: dueDate)!
+        let newCard = try #require(card.createRecurringInstance(inColumn: UUID()))
+        let expected = try #require(Calendar.current.date(byAdding: .month, value: 1, to: dueDate))
         #expect(newCard.dueDate == expected)
     }
 
@@ -232,44 +230,42 @@ struct CardTests {
 
 // MARK: - RecurrenceRule Tests
 
-@Suite("RecurrenceRule")
 struct RecurrenceRuleTests {
-    @Test func dailyRecurrence() {
+    @Test func dailyRecurrence() throws {
         let rule = RecurrenceRule(interval: 3, frequency: .daily)
         let start = Date()
         let next = rule.nextDueDate(from: start)
-        let expected = Calendar.current.date(byAdding: .day, value: 3, to: start)!
+        let expected = try #require(Calendar.current.date(byAdding: .day, value: 3, to: start))
         #expect(next == expected)
     }
 
-    @Test func weeklyRecurrence() {
+    @Test func weeklyRecurrence() throws {
         let rule = RecurrenceRule(interval: 2, frequency: .weekly)
         let start = Date()
         let next = rule.nextDueDate(from: start)
-        let expected = Calendar.current.date(byAdding: .weekOfYear, value: 2, to: start)!
+        let expected = try #require(Calendar.current.date(byAdding: .weekOfYear, value: 2, to: start))
         #expect(next == expected)
     }
 
-    @Test func monthlyRecurrence() {
+    @Test func monthlyRecurrence() throws {
         let rule = RecurrenceRule(interval: 1, frequency: .monthly)
         let start = Date()
         let next = rule.nextDueDate(from: start)
-        let expected = Calendar.current.date(byAdding: .month, value: 1, to: start)!
+        let expected = try #require(Calendar.current.date(byAdding: .month, value: 1, to: start))
         #expect(next == expected)
     }
 
-    @Test func customRecurrenceUsesDays() {
+    @Test func customRecurrenceUsesDays() throws {
         let rule = RecurrenceRule(interval: 30, frequency: .custom)
         let start = Date()
         let next = rule.nextDueDate(from: start)
-        let daysDiff = Calendar.current.dateComponents([.day], from: start, to: next).day!
+        let daysDiff = try #require(Calendar.current.dateComponents([.day], from: start, to: next).day)
         #expect(daysDiff == 30)
     }
 }
 
 // MARK: - Priority Tests
 
-@Suite("Priority")
 struct PriorityTests {
     @Test func sortOrder() {
         #expect(Priority.urgent < Priority.normal)
@@ -290,7 +286,6 @@ struct PriorityTests {
 
 // MARK: - Label Tests
 
-@Suite("Label")
 struct LabelTests {
     @Test func exactlyFourLabels() {
         #expect(Label.allCases.count == 4)
@@ -312,7 +307,6 @@ struct LabelTests {
 
 // MARK: - ColumnStatus Tests
 
-@Suite("ColumnStatus")
 struct ColumnStatusTests {
     @Test func defaultOrderHasFourStatuses() {
         #expect(ColumnStatus.defaultOrder.count == 4)
@@ -326,12 +320,11 @@ struct ColumnStatusTests {
 
 // MARK: - Note Tests
 
-@Suite("Note")
 struct NoteTests {
     @Test func initializesWithDefaults() {
         let note = Note(title: "Setup Script")
         #expect(note.title == "Setup Script")
-        #expect(note.content == "")
+        #expect(note.content.isEmpty)
     }
 
     @Test func notesStoreInitializesEmpty() {
@@ -342,7 +335,6 @@ struct NoteTests {
 
 // MARK: - ChecklistItem Tests
 
-@Suite("ChecklistItem")
 struct ChecklistItemTests {
     @Test func initializesUnchecked() {
         let item = ChecklistItem(title: "Do something")
@@ -354,7 +346,6 @@ struct ChecklistItemTests {
 
 // MARK: - Codable Roundtrip Tests
 
-@Suite("Codable")
 struct CodableTests {
     private let encoder: JSONEncoder = {
         let e = JSONEncoder()
@@ -397,7 +388,7 @@ struct CodableTests {
         let now = stableDate()
         let store = NotesStore(notes: [
             Note(title: "Note 1", content: "Content 1", createdAt: now, updatedAt: now),
-            Note(title: "Note 2", content: "brew install node", createdAt: now, updatedAt: now),
+            Note(title: "Note 2", content: "brew install node", createdAt: now, updatedAt: now)
         ])
         let data = try encoder.encode(store)
         let decoded = try decoder.decode(NotesStore.self, from: data)
@@ -415,7 +406,7 @@ struct CodableTests {
             dueDate: now,
             checklist: [
                 ChecklistItem(title: "A", isCompleted: false, position: 0),
-                ChecklistItem(title: "B", isCompleted: true, position: 1),
+                ChecklistItem(title: "B", isCompleted: true, position: 1)
             ],
             isRecurring: true,
             recurrenceRule: RecurrenceRule(interval: 2, frequency: .weekly),
@@ -431,7 +422,6 @@ struct CodableTests {
 
 // MARK: - BoardViewModel Tests
 
-@Suite("BoardViewModel")
 @MainActor
 struct BoardViewModelTests {
     private func makeViewModel() -> BoardViewModel {
@@ -538,7 +528,7 @@ struct BoardViewModelTests {
         #expect(vm.board.cards[0].completedAt == nil)
     }
 
-    @Test func moveRecurringCardToCompletedCreatesNewInstance() {
+    @Test func moveRecurringCardToCompletedCreatesNewInstance() throws {
         let vm = makeViewModel()
         let backlogId = vm.board.columns[0].id
         let completedId = vm.board.columns[3].id
@@ -554,7 +544,7 @@ struct BoardViewModelTests {
         vm.board.cards.append(card)
         vm.moveCard(card.id, toColumn: completedId)
         #expect(vm.board.cards.count == 2)
-        let newCard = vm.board.cards.last!
+        let newCard = try #require(vm.board.cards.last)
         #expect(newCard.columnId == backlogId)
         #expect(newCard.title == "Recurring")
         #expect(newCard.isRecurring == true)
@@ -643,7 +633,7 @@ struct BoardViewModelTests {
         let vm = makeViewModel()
         let columns = vm.sortedColumns
         #expect(columns.count == 4)
-        for i in 0..<columns.count {
+        for i in 0 ..< columns.count {
             #expect(columns[i].position == i)
         }
     }
@@ -688,7 +678,6 @@ struct BoardViewModelTests {
 
 // MARK: - NotesViewModel Tests
 
-@Suite("NotesViewModel")
 @MainActor
 struct NotesViewModelTests {
     private func makeViewModel() -> NotesViewModel {
@@ -841,7 +830,6 @@ struct NotesViewModelTests {
 
 // MARK: - V2: Filter Tests
 
-@Suite("Filters")
 @MainActor
 struct FilterTests {
     private func makeViewModel() -> BoardViewModel {
@@ -925,14 +913,13 @@ struct FilterTests {
         vm.board.cards[1].columnId = inProgressId
 
         vm.filterLabel = .video
-        #expect(vm.cardsForColumn(vm.board.columns[0]).count == 0)
+        #expect(vm.cardsForColumn(vm.board.columns[0]).isEmpty)
         #expect(vm.cardsForColumn(vm.board.columns[1]).count == 1)
     }
 }
 
 // MARK: - V2: Column Sort Config Tests
 
-@Suite("ColumnSort")
 @MainActor
 struct ColumnSortTests {
     private func makeViewModel() -> BoardViewModel {
@@ -948,19 +935,19 @@ struct ColumnSortTests {
         #expect(vm.board.columns[0].sortBy == [.dueDate, .createdAt])
     }
 
-    @Test func sortByDueDatePrimary() {
+    @Test func sortByDueDatePrimary() throws {
         let vm = makeViewModel()
         let colId = vm.board.columns[0].id
         vm.updateColumnSort(colId, sortBy: [.dueDate])
 
         let now = Date()
-        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: now)!
-        let nextWeek = Calendar.current.date(byAdding: .day, value: 7, to: now)!
+        let tomorrow = try #require(Calendar.current.date(byAdding: .day, value: 1, to: now))
+        let nextWeek = try #require(Calendar.current.date(byAdding: .day, value: 7, to: now))
 
         vm.board.cards = [
             Card(title: "Next week", columnId: colId, label: .blogPost, priority: .low, dueDate: nextWeek),
             Card(title: "Tomorrow", columnId: colId, label: .blogPost, priority: .urgent, dueDate: tomorrow),
-            Card(title: "Today", columnId: colId, label: .blogPost, priority: .normal, dueDate: now),
+            Card(title: "Today", columnId: colId, label: .blogPost, priority: .normal, dueDate: now)
         ]
 
         let sorted = vm.cardsForColumn(vm.board.columns[0])
@@ -974,14 +961,14 @@ struct ColumnSortTests {
         let colId = vm.board.columns[0].id
         vm.updateColumnSort(colId, sortBy: [.createdAt])
 
-        let t1 = Date(timeIntervalSince1970: 1000)
-        let t2 = Date(timeIntervalSince1970: 2000)
-        let t3 = Date(timeIntervalSince1970: 3000)
+        let t1 = Date(timeIntervalSince1970: 1_000)
+        let t2 = Date(timeIntervalSince1970: 2_000)
+        let t3 = Date(timeIntervalSince1970: 3_000)
 
         vm.board.cards = [
             Card(title: "Third", columnId: colId, label: .blogPost, priority: .low, createdAt: t3),
             Card(title: "First", columnId: colId, label: .blogPost, priority: .urgent, createdAt: t1),
-            Card(title: "Second", columnId: colId, label: .blogPost, priority: .normal, createdAt: t2),
+            Card(title: "Second", columnId: colId, label: .blogPost, priority: .normal, createdAt: t2)
         ]
 
         let sorted = vm.cardsForColumn(vm.board.columns[0])
@@ -1000,7 +987,6 @@ struct ColumnSortTests {
 
 // MARK: - V2: SortField Enum Tests
 
-@Suite("SortField")
 struct SortFieldTests {
     @Test func allCasesExist() {
         #expect(SortField.allCases.count == 3)
@@ -1015,7 +1001,6 @@ struct SortFieldTests {
 
 // MARK: - V3: Search Tests
 
-@Suite("Search")
 @MainActor
 struct SearchTests {
     private func makeViewModel() -> BoardViewModel {
@@ -1091,13 +1076,12 @@ struct SearchTests {
         vm.searchText = "something"
         vm.toggleSearch()
         #expect(vm.isSearching == false)
-        #expect(vm.searchText == "")
+        #expect(vm.searchText.isEmpty)
     }
 }
 
 // MARK: - V3: Collapsible Columns Tests
 
-@Suite("CollapsibleColumns")
 @MainActor
 struct CollapsibleColumnsTests {
     private func makeViewModel() -> BoardViewModel {
@@ -1134,7 +1118,6 @@ struct CollapsibleColumnsTests {
 
 // MARK: - V3: Auto-Archive Tests
 
-@Suite("AutoArchive")
 @MainActor
 struct AutoArchiveTests {
     private func makeViewModel() -> BoardViewModel {
@@ -1157,10 +1140,10 @@ struct AutoArchiveTests {
         #expect(cards.count == 1)
     }
 
-    @Test func oldCompletedCardsAreHidden() {
+    @Test func oldCompletedCardsAreHidden() throws {
         let vm = makeViewModel()
         let completedId = vm.board.columns[3].id
-        let tenDaysAgo = Calendar.current.date(byAdding: .day, value: -10, to: Date())!
+        let tenDaysAgo = try #require(Calendar.current.date(byAdding: .day, value: -10, to: Date()))
         vm.board.cards.append(Card(
             title: "Old done",
             columnId: completedId,
@@ -1169,13 +1152,13 @@ struct AutoArchiveTests {
         ))
         vm.autoArchiveDays = 7
         let cards = vm.cardsForColumn(vm.board.columns[3])
-        #expect(cards.count == 0)
+        #expect(cards.isEmpty)
     }
 
-    @Test func disabledAutoArchiveShowsAll() {
+    @Test func disabledAutoArchiveShowsAll() throws {
         let vm = makeViewModel()
         let completedId = vm.board.columns[3].id
-        let oldDate = Calendar.current.date(byAdding: .day, value: -30, to: Date())!
+        let oldDate = try #require(Calendar.current.date(byAdding: .day, value: -30, to: Date()))
         vm.board.cards.append(Card(
             title: "Very old",
             columnId: completedId,
@@ -1190,10 +1173,9 @@ struct AutoArchiveTests {
 
 // MARK: - V3: Status Header Color Tests
 
-@Suite("StatusHeaderColors")
 struct StatusHeaderColorTests {
     @Test func eachStatusHasDistinctColor() {
-        let colors = ColumnStatus.allCases.map { $0.headerColor }
+        let colors = ColumnStatus.allCases.map(\.headerColor)
         // Just verify they exist and are accessible
         #expect(colors.count == 4)
     }
@@ -1213,7 +1195,6 @@ struct StatusHeaderColorTests {
 
 // MARK: - V4: Attention View Tests
 
-@Suite("AttentionView")
 @MainActor
 struct AttentionViewTests {
     private func makeViewModel() -> BoardViewModel {
@@ -1222,10 +1203,10 @@ struct AttentionViewTests {
         return vm
     }
 
-    @Test func overdueCardsAppearInAttention() {
+    @Test func overdueCardsAppearInAttention() throws {
         let vm = makeViewModel()
         let colId = vm.board.columns[0].id
-        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
+        let yesterday = try #require(Calendar.current.date(byAdding: .day, value: -1, to: Date()))
         vm.board.cards.append(Card(
             title: "Overdue",
             columnId: colId,
@@ -1236,10 +1217,10 @@ struct AttentionViewTests {
         #expect(vm.attentionCards[0].title == "Overdue")
     }
 
-    @Test func dueSoonCardsAppearInAttention() {
+    @Test func dueSoonCardsAppearInAttention() throws {
         let vm = makeViewModel()
         let colId = vm.board.columns[0].id
-        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date())!
+        let tomorrow = try #require(Calendar.current.date(byAdding: .day, value: 1, to: Date()))
         vm.board.cards.append(Card(
             title: "Due soon",
             columnId: colId,
@@ -1260,10 +1241,10 @@ struct AttentionViewTests {
         #expect(vm.attentionCards.count == 1)
     }
 
-    @Test func completedCardsExcludedFromAttention() {
+    @Test func completedCardsExcludedFromAttention() throws {
         let vm = makeViewModel()
         let completedId = vm.board.columns[3].id
-        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
+        let yesterday = try #require(Calendar.current.date(byAdding: .day, value: -1, to: Date()))
         vm.board.cards.append(Card(
             title: "Done overdue",
             columnId: completedId,
@@ -1271,26 +1252,26 @@ struct AttentionViewTests {
             dueDate: yesterday,
             completedAt: Date()
         ))
-        #expect(vm.attentionCards.count == 0)
+        #expect(vm.attentionCards.isEmpty)
     }
 
-    @Test func futureCardsExcludedFromAttention() {
+    @Test func futureCardsExcludedFromAttention() throws {
         let vm = makeViewModel()
         let colId = vm.board.columns[0].id
-        let nextMonth = Calendar.current.date(byAdding: .month, value: 1, to: Date())!
+        let nextMonth = try #require(Calendar.current.date(byAdding: .month, value: 1, to: Date()))
         vm.board.cards.append(Card(
             title: "Far future",
             columnId: colId,
             label: .blogPost,
             dueDate: nextMonth
         ))
-        #expect(vm.attentionCards.count == 0)
+        #expect(vm.attentionCards.isEmpty)
     }
 
-    @Test func overdueCount() {
+    @Test func overdueCount() throws {
         let vm = makeViewModel()
         let colId = vm.board.columns[0].id
-        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
+        let yesterday = try #require(Calendar.current.date(byAdding: .day, value: -1, to: Date()))
         vm.board.cards.append(Card(title: "OD1", columnId: colId, label: .blogPost, dueDate: yesterday))
         vm.board.cards.append(Card(title: "OD2", columnId: colId, label: .video, dueDate: yesterday))
         #expect(vm.overdueCount == 2)
@@ -1307,7 +1288,6 @@ struct AttentionViewTests {
 
 // MARK: - V4: Weekly Review Tests
 
-@Suite("WeeklyReview")
 @MainActor
 struct WeeklyReviewTests {
     private func makeViewModel() -> BoardViewModel {
@@ -1352,10 +1332,10 @@ struct WeeklyReviewTests {
         #expect(data.inProgressCards.count == 1)
     }
 
-    @Test func reviewDataCountsOverdue() {
+    @Test func reviewDataCountsOverdue() throws {
         let vm = makeViewModel()
         let colId = vm.board.columns[0].id
-        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
+        let yesterday = try #require(Calendar.current.date(byAdding: .day, value: -1, to: Date()))
         vm.board.cards.append(Card(title: "Late", columnId: colId, label: .blogPost, dueDate: yesterday))
         let data = vm.weeklyReviewData
         #expect(data.overdueCards.count == 1)
@@ -1373,7 +1353,6 @@ struct WeeklyReviewTests {
 
 // MARK: - V4: Menu Bar Badge Tests
 
-@Suite("MenuBarBadge")
 @MainActor
 struct MenuBarBadgeTests {
     private func makeViewModel() -> BoardViewModel {
@@ -1382,11 +1361,11 @@ struct MenuBarBadgeTests {
         return vm
     }
 
-    @Test func badgeCountCombinesOverdueAndBlocked() {
+    @Test func badgeCountCombinesOverdueAndBlocked() throws {
         let vm = makeViewModel()
         let colId = vm.board.columns[0].id
         let blockedId = vm.board.columns[2].id
-        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
+        let yesterday = try #require(Calendar.current.date(byAdding: .day, value: -1, to: Date()))
         vm.board.cards.append(Card(title: "OD", columnId: colId, label: .blogPost, dueDate: yesterday))
         vm.board.cards.append(Card(title: "Blocked", columnId: blockedId, label: .video))
         #expect(vm.menuBarBadgeCount == 2)

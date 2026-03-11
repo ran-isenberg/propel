@@ -90,11 +90,10 @@ struct VideoEmbedView: View {
         let urlString = url.absoluteString
         // YouTube
         if urlString.contains("youtube.com") || urlString.contains("youtu.be") {
-            let videoId: String?
-            if urlString.contains("youtu.be/") {
-                videoId = url.lastPathComponent
+            let videoId: String? = if urlString.contains("youtu.be/") {
+                url.lastPathComponent
             } else {
-                videoId = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                URLComponents(url: url, resolvingAgainstBaseURL: false)?
                     .queryItems?.first(where: { $0.name == "v" })?.value
             }
             if let id = videoId {

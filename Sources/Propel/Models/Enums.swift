@@ -47,7 +47,7 @@ enum Priority: String, Codable, CaseIterable, Comparable, Identifiable, Sendable
         }
     }
 
-    static func < (lhs: Priority, rhs: Priority) -> Bool {
+    static func < (lhs: Self, rhs: Self) -> Bool {
         lhs.sortOrder < rhs.sortOrder
     }
 }
@@ -89,7 +89,7 @@ enum ColumnStatus: String, Codable, CaseIterable, Identifiable, Sendable {
 
     var id: String { rawValue }
 
-    static var defaultOrder: [ColumnStatus] {
+    static var defaultOrder: [Self] {
         [.backlog, .inProgress, .blocked, .completed]
     }
 

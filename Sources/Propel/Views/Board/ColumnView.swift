@@ -125,8 +125,8 @@ struct ColumnView: View {
         .background(
             RoundedRectangle(cornerRadius: 10)
                 .fill(isTargeted
-                      ? Color.accentColor.opacity(0.08)
-                      : Color(nsColor: .windowBackgroundColor).opacity(0.5))
+                    ? Color.accentColor.opacity(0.08)
+                    : Color(nsColor: .windowBackgroundColor).opacity(0.5))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 10)
@@ -145,7 +145,8 @@ struct ColumnView: View {
         }
         .dropDestination(for: String.self) { items, _ in
             guard let cardIdString = items.first,
-                  let cardId = UUID(uuidString: cardIdString) else {
+                  let cardId = UUID(uuidString: cardIdString)
+            else {
                 return false
             }
             let isNewArrival = isCompletedColumn &&

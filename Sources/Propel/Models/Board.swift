@@ -48,7 +48,7 @@ struct Board: Codable, Identifiable, Equatable, Sendable {
     ) {
         self.id = id
         self.name = name
-        self.columns = columns ?? Board.defaultColumns()
+        self.columns = columns ?? Self.defaultColumns()
         self.cards = cards
         self.createdAt = createdAt
         self.updatedAt = updatedAt

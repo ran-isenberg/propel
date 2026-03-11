@@ -3,7 +3,7 @@ import SwiftUI
 @Observable
 @MainActor
 final class NotesViewModel {
-    var store: NotesStore = NotesStore()
+    var store: NotesStore = .init()
     var selectedNoteId: UUID?
     var searchText: String = ""
     var errorMessage: String?
@@ -53,7 +53,7 @@ final class NotesViewModel {
         }
         return sorted.filter {
             $0.title.localizedCaseInsensitiveContains(searchText) ||
-            $0.content.localizedCaseInsensitiveContains(searchText)
+                $0.content.localizedCaseInsensitiveContains(searchText)
         }
     }
 

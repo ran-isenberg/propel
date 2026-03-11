@@ -11,7 +11,7 @@ struct CardDetailPanel: View {
 
     var body: some View {
         Group {
-            if let card = card {
+            if let card {
                 CardDetailContent(
                     card: card,
                     onUpdate: { viewModel.updateCard($0) },
@@ -53,7 +53,13 @@ private struct CardDetailContent: View {
     @State private var recurrenceFrequency: Frequency
     @State private var recurrenceInterval: Int
 
-    init(card: Card, onUpdate: @escaping (Card) -> Void, onDelete: @escaping () -> Void, columns: [Column], onMoveToColumn: @escaping (UUID) -> Void) {
+    init(
+        card: Card,
+        onUpdate: @escaping (Card) -> Void,
+        onDelete: @escaping () -> Void,
+        columns: [Column],
+        onMoveToColumn: @escaping (UUID) -> Void
+    ) {
         self.card = card
         self.onUpdate = onUpdate
         self.onDelete = onDelete
@@ -156,7 +162,7 @@ private struct CardDetailContent: View {
                     Toggle("", isOn: $isRecurring)
                         .labelsHidden()
                         .onChange(of: isRecurring) {
-                            if isRecurring && !hasDueDate {
+                            if isRecurring, !hasDueDate {
                                 hasDueDate = true
                             }
                             saveChanges()

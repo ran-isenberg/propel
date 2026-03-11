@@ -60,7 +60,7 @@ struct Card: Codable, Identifiable, Equatable, Sendable {
     }
 
     /// Create a new recurring instance from this card with reset checklist and new due date.
-    func createRecurringInstance(inColumn columnId: UUID) -> Card? {
+    func createRecurringInstance(inColumn columnId: UUID) -> Self? {
         guard isRecurring, let rule = recurrenceRule, let currentDueDate = dueDate else {
             return nil
         }
@@ -68,7 +68,7 @@ struct Card: Codable, Identifiable, Equatable, Sendable {
         let resetChecklist = checklist.map { item in
             ChecklistItem(id: UUID(), title: item.title, isCompleted: false, position: item.position)
         }
-        return Card(
+        return Self(
             title: title,
             description: description,
             columnId: columnId,

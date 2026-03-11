@@ -10,7 +10,7 @@ INSTALL_DIR = /Applications
 ICON_SRC = Sources/Propel/Resources/AppIcon.icns
 BIN_PATH = $(shell swift build -c release --show-bin-path 2>/dev/null)
 
-.PHONY: build build-release run test clean install uninstall dmg app-bundle check-tools generate-icon help
+.PHONY: build build-release run test clean install uninstall dmg app-bundle check-tools generate-icon help lint format check
 
 help: ## Show available commands
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -19,11 +19,29 @@ check-tools: ## Verify Xcode is installed
 	@xcodebuild -version > /dev/null 2>&1 || { echo "Error: Xcode is required. Install from App Store, then run:"; echo "  sudo xcode-select -s /Applications/Xcode.app/Contents/Developer"; exit 1; }
 	@echo "Xcode toolchain: OK"
 
-build: check-tools ## Build in debug mode
+lint: ## Run SwiftLint (requires: brew install swiftlint)
+	@command -v swiftlint > /dev/null 2>&1 || { echo "Error: SwiftLint not found. Install with: brew install swiftlint"; exit 1; }
+	@echo "Running SwiftLint..."
+	@swiftlint lint --strict Sources/ Tests/
+
+format: ## Auto-format code with SwiftFormat (requires: brew install swiftformat)
+	@command -v swiftformat > /dev/null 2>&1 || { echo "Error: SwiftFormat not found. Install with: brew install swiftformat"; exit 1; }
+	@echo "Running SwiftFormat..."
+	@swiftformat Sources/ Tests/
+
+format-check: ## Check formatting without modifying files
+	@command -v swiftformat > /dev/null 2>&1 || { echo "Error: SwiftFormat not found. Install with: brew install swiftformat"; exit 1; }
+	@echo "Checking format..."
+	@swiftformat --lint Sources/ Tests/
+
+build: check-tools lint ## Build in debug mode (runs linter first)
 	swift build
 
-build-release: check-tools ## Build in release mode
+build-release: check-tools lint ## Build in release mode (runs linter first)
 	swift build -c release
+
+check: lint format-check test ## Run all checks (lint + format check + tests)
+	@echo "All checks passed!"
 
 run: build ## Build and run the app
 	@mkdir -p "$(DEBUG_APP)/Contents/MacOS"

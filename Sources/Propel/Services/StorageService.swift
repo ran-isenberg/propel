@@ -24,10 +24,13 @@ actor StorageService {
 
     private init() {
         if let savedPath = UserDefaults.standard.string(forKey: Self.storageFolderKey),
-           !savedPath.isEmpty {
+           !savedPath.isEmpty
+        {
             storageDir = URL(fileURLWithPath: savedPath, isDirectory: true)
         } else {
-            let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+                fatalError("Application Support directory not found")
+            }
             storageDir = appSupport.appendingPathComponent("Propel", isDirectory: true)
         }
         boardFileURL = storageDir.appendingPathComponent("board.json")
@@ -48,10 +51,10 @@ actor StorageService {
         let newNotesURL = newFolder.appendingPathComponent("notes.json")
 
         // Copy existing files to new location if they don't already exist there
-        if fm.fileExists(atPath: boardFileURL.path) && !fm.fileExists(atPath: newBoardURL.path) {
+        if fm.fileExists(atPath: boardFileURL.path), !fm.fileExists(atPath: newBoardURL.path) {
             try fm.copyItem(at: boardFileURL, to: newBoardURL)
         }
-        if fm.fileExists(atPath: notesFileURL.path) && !fm.fileExists(atPath: newNotesURL.path) {
+        if fm.fileExists(atPath: notesFileURL.path), !fm.fileExists(atPath: newNotesURL.path) {
             try fm.copyItem(at: notesFileURL, to: newNotesURL)
         }
 
@@ -63,7 +66,9 @@ actor StorageService {
     }
 
     func resetStorageToDefault() throws {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            fatalError("Application Support directory not found")
+        }
         let defaultDir = appSupport.appendingPathComponent("Propel", isDirectory: true)
         UserDefaults.standard.removeObject(forKey: Self.storageFolderKey)
         storageDir = defaultDir

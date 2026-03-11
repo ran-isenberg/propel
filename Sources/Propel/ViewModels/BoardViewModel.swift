@@ -4,13 +4,14 @@ import UserNotifications
 @Observable
 @MainActor
 final class BoardViewModel {
-    var board: Board = Board()
+    var board: Board = .init()
     var selectedCardId: UUID?
     var isCreatingCard: Bool = false
     var creationTargetColumnId: UUID?
     var errorMessage: String?
 
     // MARK: - Filters
+
     var filterLabel: Label?
     var filterPriority: Priority?
     var isFilterActive: Bool {
@@ -18,19 +19,24 @@ final class BoardViewModel {
     }
 
     // MARK: - Search
+
     var searchText: String = ""
     var isSearching: Bool = false
 
     // MARK: - Collapsible Columns
+
     var collapsedColumnIds: Set<UUID> = []
 
     // MARK: - Auto-Archive
+
     var autoArchiveDays: Int = 7
 
     // MARK: - Done-First Toggle
+
     var showDoneFirst: Bool = false
 
     // MARK: - Attention View
+
     var showAttentionView: Bool = false
 
     private var debouncedSave: DebouncedSave?
@@ -92,11 +98,11 @@ final class BoardViewModel {
         if !searchText.isEmpty {
             cards = cards.filter {
                 $0.title.localizedCaseInsensitiveContains(searchText) ||
-                $0.description.localizedCaseInsensitiveContains(searchText)
+                    $0.description.localizedCaseInsensitiveContains(searchText)
             }
         }
         // Auto-archive: hide completed cards older than N days
-        if autoArchiveDays > 0 && column.status == .completed {
+        if autoArchiveDays > 0, column.status == .completed {
             let cutoff = Calendar.current.date(byAdding: .day, value: -autoArchiveDays, to: Date()) ?? Date()
             cards = cards.filter { card in
                 guard let completedAt = card.completedAt else { return true }
@@ -117,7 +123,7 @@ final class BoardViewModel {
         guard !searchText.isEmpty else { return [] }
         return board.cards.filter {
             $0.title.localizedCaseInsensitiveContains(searchText) ||
-            $0.description.localizedCaseInsensitiveContains(searchText)
+                $0.description.localizedCaseInsensitiveContains(searchText)
         }
     }
 
@@ -160,7 +166,8 @@ final class BoardViewModel {
         return board.cards.filter { card in
             // Exclude completed cards
             if let completedColumn = column(for: .completed),
-               card.columnId == completedColumn.id {
+               card.columnId == completedColumn.id
+            {
                 return false
             }
             // Overdue
@@ -182,17 +189,17 @@ final class BoardViewModel {
 
     var overdueCount: Int {
         let now = Date()
-        return board.cards.filter { card in
+        return board.cards.count(where: { card in
             guard let due = card.dueDate else { return false }
             if let completedColumn = column(for: .completed),
                card.columnId == completedColumn.id { return false }
             return due < now
-        }.count
+        })
     }
 
     var blockedCount: Int {
         guard let blockedColumn = column(for: .blocked) else { return 0 }
-        return board.cards.filter { $0.columnId == blockedColumn.id }.count
+        return board.cards.count(where: { $0.columnId == blockedColumn.id })
     }
 
     // MARK: - Weekly Review
@@ -209,11 +216,10 @@ final class BoardViewModel {
 
         let createdThisWeek = board.cards.filter { $0.createdAt >= weekAgo }
 
-        let inProgressCards: [Card]
-        if let inProgressColumn = column(for: .inProgress) {
-            inProgressCards = board.cards.filter { $0.columnId == inProgressColumn.id }
+        let inProgressCards: [Card] = if let inProgressColumn = column(for: .inProgress) {
+            board.cards.filter { $0.columnId == inProgressColumn.id }
         } else {
-            inProgressCards = []
+            []
         }
 
         let overdueCards = board.cards.filter { card in
@@ -233,6 +239,7 @@ final class BoardViewModel {
     }
 
     // MARK: - Menu Bar Badge
+
     var menuBarBadgeCount: Int {
         overdueCount + blockedCount
     }
@@ -253,7 +260,7 @@ final class BoardViewModel {
         notificationCheckTask?.cancel()
         notificationCheckTask = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(3600))
+                try? await Task.sleep(for: .seconds(3_600))
                 await self?.checkDueDateNotifications()
             }
         }
@@ -349,13 +356,15 @@ final class BoardViewModel {
 
         // Check if moving to Completed column
         if let targetColumn = board.columns.first(where: { $0.id == targetColumnId }),
-           targetColumn.status == .completed {
+           targetColumn.status == .completed
+        {
             board.cards[index].completedAt = Date()
             handleRecurringTaskCompletion(board.cards[index])
         } else {
             // If moving out of Completed, clear completedAt
             if let previousColumn = board.columns.first(where: { $0.id == previousColumnId }),
-               previousColumn.status == .completed {
+               previousColumn.status == .completed
+            {
                 board.cards[index].completedAt = nil
             }
         }
@@ -365,7 +374,8 @@ final class BoardViewModel {
 
     private func handleRecurringTaskCompletion(_ card: Card) {
         guard let backlogColumn = column(for: .backlog),
-              let newCard = card.createRecurringInstance(inColumn: backlogColumn.id) else {
+              let newCard = card.createRecurringInstance(inColumn: backlogColumn.id)
+        else {
             return
         }
         board.cards.append(newCard)
@@ -398,7 +408,8 @@ final class BoardViewModel {
         guard let index = board.cards.firstIndex(where: { $0.id == cardId }) else { return }
         let card = board.cards[index]
         if let blockedColumn = column(for: .blocked),
-           let inProgressColumn = column(for: .inProgress) {
+           let inProgressColumn = column(for: .inProgress)
+        {
             if card.columnId == blockedColumn.id {
                 // Unblock: move to In Progress
                 moveCard(cardId, toColumn: inProgressColumn.id)

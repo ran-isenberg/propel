@@ -22,12 +22,13 @@ struct CompletionCelebration: View {
                 }
             }
             .onAppear {
-                particles = (0..<20).map { _ in
+                particles = (0 ..< 20).map { _ in
                     Particle(
+                        // swiftlint:disable:next force_unwrapping
                         color: colors.randomElement()!,
-                        size: CGFloat.random(in: 4...8),
-                        endX: CGFloat.random(in: 0...geo.size.width),
-                        endY: CGFloat.random(in: -20...geo.size.height),
+                        size: CGFloat.random(in: 4 ... 8),
+                        endX: CGFloat.random(in: 0 ... geo.size.width),
+                        endY: CGFloat.random(in: -20 ... geo.size.height),
                         shape: Bool.random() ? AnyShape(Circle()) : AnyShape(RoundedRectangle(cornerRadius: 1))
                     )
                 }

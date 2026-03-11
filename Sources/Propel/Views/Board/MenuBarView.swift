@@ -103,7 +103,7 @@ struct MenuBarView: View {
 
     private func cardCount(for status: ColumnStatus) -> Int {
         guard let column = viewModel.column(for: status) else { return 0 }
-        return viewModel.board.cards.filter { $0.columnId == column.id }.count
+        return viewModel.board.cards.count(where: { $0.columnId == column.id })
     }
 }
 

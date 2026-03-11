@@ -52,10 +52,10 @@ struct ContentView: View {
                     } label: {
                         HStack(spacing: 3) {
                             Image(systemName: boardViewModel.attentionCards.isEmpty
-                                  ? "checkmark.seal.fill"
-                                  : "exclamationmark.triangle.fill")
+                                ? "checkmark.seal.fill"
+                                : "exclamationmark.triangle.fill")
                                 .font(.caption)
-                            if boardViewModel.attentionCards.count > 0 {
+                            if !boardViewModel.attentionCards.isEmpty {
                                 Text("\(boardViewModel.attentionCards.count)")
                                     .font(.caption2.bold())
                             }
