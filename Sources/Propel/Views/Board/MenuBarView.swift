@@ -44,24 +44,24 @@ struct MenuBarView: View {
             .padding(.horizontal, 12)
 
             // Attention items
-            if viewModel.overdueCount > 0 || viewModel.blockedCount > 0 {
+            if viewModel.overdueCount > 0 || viewModel.deliveredReminderCount > 0 {
                 Divider()
                 VStack(alignment: .leading, spacing: 4) {
+                    if viewModel.deliveredReminderCount > 0 {
+                        HStack(spacing: 4) {
+                            Image(systemName: "bell.badge.fill")
+                                .foregroundStyle(.orange)
+                                .font(.caption)
+                            Text("\(viewModel.deliveredReminderCount) reminder\(viewModel.deliveredReminderCount == 1 ? "" : "s")")
+                                .font(.caption)
+                        }
+                    }
                     if viewModel.overdueCount > 0 {
                         HStack(spacing: 4) {
                             Image(systemName: "exclamationmark.triangle.fill")
                                 .foregroundStyle(.red)
                                 .font(.caption)
                             Text("\(viewModel.overdueCount) overdue")
-                                .font(.caption)
-                        }
-                    }
-                    if viewModel.blockedCount > 0 {
-                        HStack(spacing: 4) {
-                            Image(systemName: "xmark.octagon.fill")
-                                .foregroundStyle(.red)
-                                .font(.caption)
-                            Text("\(viewModel.blockedCount) blocked")
                                 .font(.caption)
                         }
                     }
@@ -101,6 +101,9 @@ struct MenuBarView: View {
             .padding(.bottom, 8)
         }
         .frame(width: 280)
+        .task {
+            await viewModel.refreshDeliveredNotificationCount()
+        }
     }
 
     private func activateMainWindow() {
@@ -140,6 +143,8 @@ private struct MenuBarStat: View {
             Text(label)
                 .font(.system(size: 10))
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
         }
         .frame(maxWidth: .infinity)
     }

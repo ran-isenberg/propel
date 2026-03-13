@@ -39,6 +39,10 @@ final class BoardViewModel {
 
     var showAttentionView: Bool = false
 
+    // MARK: - Delivered Notifications
+
+    var deliveredReminderCount: Int = 0
+
     private var debouncedSave: DebouncedSave?
     private var notificationCheckTask: Task<Void, Never>?
 
@@ -50,6 +54,7 @@ final class BoardViewModel {
             await loadBoard()
             requestNotificationPermission()
             scheduleNotificationCheck()
+            await refreshDeliveredNotificationCount()
         }
     }
 
@@ -246,7 +251,7 @@ final class BoardViewModel {
     // MARK: - Menu Bar Badge
 
     var menuBarBadgeCount: Int {
-        overdueCount + blockedCount
+        overdueCount + deliveredReminderCount
     }
 
     // MARK: - Notifications
@@ -265,11 +270,18 @@ final class BoardViewModel {
         notificationCheckTask?.cancel()
         notificationCheckTask = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(3_600))
+                try? await Task.sleep(for: .seconds(600))
                 guard !Task.isCancelled else { return }
                 await self?.checkDueDateNotifications()
             }
         }
+    }
+
+    func refreshDeliveredNotificationCount() async {
+        guard Self.isRunningInApp else { return }
+        let delivered = await UNUserNotificationCenter.current().deliveredNotifications()
+        let reminderCount = delivered.filter { $0.request.identifier.hasPrefix("reminder-") }.count
+        deliveredReminderCount = reminderCount
     }
 
     private func checkDueDateNotifications() async {
@@ -301,18 +313,65 @@ final class BoardViewModel {
         try? await UNUserNotificationCenter.current().add(request)
     }
 
+    func scheduleReminder(for card: Card) {
+        guard Self.isRunningInApp else { return }
+        let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(withIdentifiers: ["reminder-\(card.id)"])
+
+        guard card.reminder != .none,
+              let dueDate = card.dueDate
+        else { return }
+
+        let fireDate = dueDate.addingTimeInterval(card.reminder.offsetSeconds)
+        guard fireDate > Date() else { return }
+
+        let content = UNMutableNotificationContent()
+        content.title = "Reminder"
+        content.body = "\"\(card.title)\" is \(card.reminder == .atDueDate ? "due now" : "due soon")"
+        content.sound = .default
+
+        let comps = Calendar.current.dateComponents(
+            [.year, .month, .day, .hour, .minute],
+            from: fireDate
+        )
+        let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
+        let request = UNNotificationRequest(
+            identifier: "reminder-\(card.id)",
+            content: content,
+            trigger: trigger
+        )
+        center.add(request)
+    }
+
+    private func cancelReminder(for cardId: UUID) {
+        guard Self.isRunningInApp else { return }
+        UNUserNotificationCenter.current()
+            .removePendingNotificationRequests(withIdentifiers: ["reminder-\(cardId)"])
+    }
+
     // MARK: - Card CRUD
 
     private static let blogPostDefaultChecklist: [ChecklistItem] = [
-        ChecklistItem(title: "PR", position: 0),
-        ChecklistItem(title: "Merge", position: 1),
-        ChecklistItem(title: "GA", position: 2),
-        ChecklistItem(title: "LinkedIn", position: 3),
-        ChecklistItem(title: "X", position: 4),
-        ChecklistItem(title: "Heroes", position: 5),
+        ChecklistItem(title: "Post Structure", position: 0),
+        ChecklistItem(title: "PR", position: 1),
+        ChecklistItem(title: "Merge", position: 2),
+        ChecklistItem(title: "GA", position: 3),
+        ChecklistItem(title: "LinkedIn", position: 4),
+        ChecklistItem(title: "X", position: 5),
+        ChecklistItem(title: "Heroes", position: 6),
     ]
 
-    func createCard(title: String, label: Label, priority: Priority, description: String = "", dueDate: Date? = nil, inColumn columnId: UUID) {
+    func createCard(
+        title: String,
+        label: Label,
+        priority: Priority,
+        description: String = "",
+        dueDate: Date? = nil,
+        isRecurring: Bool = false,
+        recurrenceRule: RecurrenceRule? = nil,
+        reminder: ReminderOffset = .none,
+        inColumn columnId: UUID
+    ) {
         let checklist = label == .blogPost ? Self.blogPostDefaultChecklist : []
         let card = Card(
             title: title,
@@ -321,12 +380,16 @@ final class BoardViewModel {
             label: label,
             priority: priority,
             dueDate: dueDate,
-            checklist: checklist
+            checklist: checklist,
+            isRecurring: isRecurring,
+            recurrenceRule: recurrenceRule,
+            reminder: reminder
         )
         board.cards.append(card)
         isCreatingCard = false
         creationTargetColumnId = nil
         selectedCardId = card.id
+        scheduleReminder(for: card)
         scheduleSave()
     }
 
@@ -355,10 +418,12 @@ final class BoardViewModel {
         var updated = card
         updated.updatedAt = Date()
         board.cards[index] = updated
+        scheduleReminder(for: updated)
         scheduleSave()
     }
 
     func deleteCard(_ cardId: UUID) {
+        cancelReminder(for: cardId)
         board.cards.removeAll { $0.id == cardId }
         if selectedCardId == cardId {
             selectedCardId = nil
@@ -397,6 +462,7 @@ final class BoardViewModel {
            targetColumn.status == .completed
         {
             board.cards[index].completedAt = Date()
+            cancelReminder(for: cardId)
             handleRecurringTaskCompletion(board.cards[index])
         } else {
             // If moving out of Completed, clear completedAt
@@ -417,6 +483,7 @@ final class BoardViewModel {
             return
         }
         board.cards.append(newCard)
+        scheduleReminder(for: newCard)
     }
 
     // MARK: - Card Context Menu Actions

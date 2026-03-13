@@ -178,7 +178,7 @@ struct ContentView: View {
             .padding(.top, 8)
 
             if boardViewModel.isCreatingCard, let columnId = boardViewModel.creationTargetColumnId {
-                CardCreationPanel(targetColumnId: columnId)
+                CardCreationPanel(initialColumnId: columnId)
             } else if let cardId = boardViewModel.selectedCardId {
                 CardDetailPanel(cardId: cardId)
                     .id(cardId)

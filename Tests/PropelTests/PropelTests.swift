@@ -288,8 +288,8 @@ struct PriorityTests {
 // MARK: - Label Tests
 
 struct LabelTests {
-    @Test func exactlyFourLabels() {
-        #expect(Label.allCases.count == 4)
+    @Test func exactlyFiveLabels() {
+        #expect(Label.allCases.count == 5)
     }
 
     @Test func rawValues() {
@@ -297,12 +297,13 @@ struct LabelTests {
         #expect(Label.conferenceTalk.rawValue == "Conference Talk")
         #expect(Label.video.rawValue == "Video")
         #expect(Label.podcast.rawValue == "Podcast")
+        #expect(Label.code.rawValue == "Code")
     }
 
     @Test func distinctColors() {
         let colors = Label.allCases.map(\.color)
         let uniqueColors = Set(colors)
-        #expect(uniqueColors.count == 4)
+        #expect(uniqueColors.count == 5)
     }
 }
 
@@ -1362,14 +1363,12 @@ struct MenuBarBadgeTests {
         return vm
     }
 
-    @Test func badgeCountCombinesOverdueAndBlocked() throws {
+    @Test func badgeCountShowsOverdue() throws {
         let vm = makeViewModel()
         let colId = vm.board.columns[0].id
-        let blockedId = vm.board.columns[2].id
         let yesterday = try #require(Calendar.current.date(byAdding: .day, value: -1, to: Date()))
         vm.board.cards.append(Card(title: "OD", columnId: colId, label: .blogPost, dueDate: yesterday))
-        vm.board.cards.append(Card(title: "Blocked", columnId: blockedId, label: .video))
-        #expect(vm.menuBarBadgeCount == 2)
+        #expect(vm.menuBarBadgeCount == 1)
     }
 
     @Test func zeroBadgeWhenAllClear() {
@@ -1574,8 +1573,9 @@ struct EdgeCaseTests {
         let card = await vm.board.cards.first
         let checklist = card?.checklist ?? []
         #expect(card != nil)
-        #expect(checklist.count == 6)
+        #expect(checklist.count == 7)
         let titles = checklist.map(\.title)
+        #expect(titles.contains("Post Structure"))
         #expect(titles.contains("PR"))
         #expect(titles.contains("Merge"))
         #expect(titles.contains("GA"))

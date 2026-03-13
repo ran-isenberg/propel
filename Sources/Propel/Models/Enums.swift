@@ -6,6 +6,7 @@ enum Label: String, Codable, CaseIterable, Identifiable, Sendable {
     case conferenceTalk = "Conference Talk"
     case video = "Video"
     case podcast = "Podcast"
+    case code = "Code"
 
     var id: String { rawValue }
 
@@ -15,6 +16,7 @@ enum Label: String, Codable, CaseIterable, Identifiable, Sendable {
         case .conferenceTalk: "purple"
         case .video: "red"
         case .podcast: "green"
+        case .code: "cyan"
         }
     }
 
@@ -24,6 +26,7 @@ enum Label: String, Codable, CaseIterable, Identifiable, Sendable {
         case .conferenceTalk: .purple
         case .video: .red
         case .podcast: .green
+        case .code: .cyan
         }
     }
 }
@@ -78,6 +81,36 @@ enum Frequency: String, Codable, CaseIterable, Identifiable, Sendable {
 
     var displayName: String {
         rawValue.capitalized
+    }
+}
+
+enum ReminderOffset: String, Codable, CaseIterable, Identifiable, Sendable {
+    case none
+    case atDueDate
+    case fifteenMinutes
+    case oneHour
+    case oneDay
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .none: "None"
+        case .atDueDate: "At due date"
+        case .fifteenMinutes: "15 minutes before"
+        case .oneHour: "1 hour before"
+        case .oneDay: "1 day before"
+        }
+    }
+
+    var offsetSeconds: TimeInterval {
+        switch self {
+        case .none: 0
+        case .atDueDate: 0
+        case .fifteenMinutes: -15 * 60
+        case .oneHour: -3_600
+        case .oneDay: -86_400
+        }
     }
 }
 

@@ -52,6 +52,9 @@ private struct CardDetailContent: View {
     @State private var isRecurring: Bool
     @State private var recurrenceFrequency: Frequency
     @State private var recurrenceInterval: Int
+    @State private var showDatePicker = false
+    @State private var hasTime: Bool
+    @State private var reminder: ReminderOffset
 
     init(
         card: Card,
@@ -75,6 +78,13 @@ private struct CardDetailContent: View {
         _isRecurring = State(initialValue: card.isRecurring)
         _recurrenceFrequency = State(initialValue: card.recurrenceRule?.frequency ?? .weekly)
         _recurrenceInterval = State(initialValue: card.recurrenceRule?.interval ?? 1)
+        if let due = card.dueDate {
+            let comps = Calendar.current.dateComponents([.hour, .minute], from: due)
+            _hasTime = State(initialValue: (comps.hour ?? 0) != 0 || (comps.minute ?? 0) != 0)
+        } else {
+            _hasTime = State(initialValue: false)
+        }
+        _reminder = State(initialValue: card.reminder)
     }
 
     var body: some View {
@@ -152,9 +162,47 @@ private struct CardDetailContent: View {
                         .onChange(of: hasDueDate) { saveChanges() }
                 }
                 if hasDueDate {
-                    DatePicker("", selection: $dueDate, displayedComponents: .date)
+                    HStack {
+                        Button(dueDate.formatted(date: .abbreviated, time: .omitted)) {
+                            showDatePicker.toggle()
+                        }
+                        .popover(isPresented: $showDatePicker) {
+                            DatePicker("", selection: $dueDate, displayedComponents: .date)
+                                .datePickerStyle(.graphical)
+                                .labelsHidden()
+                                .padding()
+                                .onChange(of: dueDate) {
+                                    showDatePicker = false
+                                    saveChanges()
+                                }
+                        }
+                        Spacer()
+                        Toggle("Time", isOn: $hasTime)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .onChange(of: hasTime) { saveChanges() }
+                    }
+                    if hasTime {
+                        DatePicker("", selection: $dueDate, displayedComponents: .hourAndMinute)
+                            .labelsHidden()
+                            .onChange(of: dueDate) { saveChanges() }
+                    }
+                }
+
+                // Reminder
+                if hasDueDate {
+                    HStack {
+                        Text("Reminder")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Picker("Reminder", selection: $reminder) {
+                            ForEach(ReminderOffset.allCases) { option in
+                                Text(option.displayName).tag(option)
+                            }
+                        }
                         .labelsHidden()
-                        .onChange(of: dueDate) { saveChanges() }
+                        .onChange(of: reminder) { saveChanges() }
+                    }
                 }
 
                 // Recurring
@@ -250,6 +298,7 @@ private struct CardDetailContent: View {
         } else {
             updated.recurrenceRule = nil
         }
+        updated.reminder = hasDueDate ? reminder : .none
         onUpdate(updated)
     }
 }

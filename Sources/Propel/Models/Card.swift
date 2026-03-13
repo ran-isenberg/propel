@@ -25,6 +25,7 @@ struct Card: Codable, Identifiable, Equatable, Sendable {
     var checklist: [ChecklistItem]
     var isRecurring: Bool
     var recurrenceRule: RecurrenceRule?
+    var reminder: ReminderOffset
     var createdAt: Date
     var updatedAt: Date
     var completedAt: Date?
@@ -40,6 +41,7 @@ struct Card: Codable, Identifiable, Equatable, Sendable {
         checklist: [ChecklistItem] = [],
         isRecurring: Bool = false,
         recurrenceRule: RecurrenceRule? = nil,
+        reminder: ReminderOffset = .none,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
         completedAt: Date? = nil
@@ -54,9 +56,28 @@ struct Card: Codable, Identifiable, Equatable, Sendable {
         self.checklist = checklist
         self.isRecurring = isRecurring
         self.recurrenceRule = recurrenceRule
+        self.reminder = reminder
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.completedAt = completedAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        description = try container.decode(String.self, forKey: .description)
+        columnId = try container.decode(UUID.self, forKey: .columnId)
+        label = try container.decode(Label.self, forKey: .label)
+        priority = try container.decode(Priority.self, forKey: .priority)
+        dueDate = try container.decodeIfPresent(Date.self, forKey: .dueDate)
+        checklist = try container.decode([ChecklistItem].self, forKey: .checklist)
+        isRecurring = try container.decode(Bool.self, forKey: .isRecurring)
+        recurrenceRule = try container.decodeIfPresent(RecurrenceRule.self, forKey: .recurrenceRule)
+        reminder = try container.decodeIfPresent(ReminderOffset.self, forKey: .reminder) ?? .none
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+        completedAt = try container.decodeIfPresent(Date.self, forKey: .completedAt)
     }
 
     /// Create a new recurring instance from this card with reset checklist and new due date.
@@ -77,7 +98,8 @@ struct Card: Codable, Identifiable, Equatable, Sendable {
             dueDate: newDueDate,
             checklist: resetChecklist,
             isRecurring: true,
-            recurrenceRule: rule
+            recurrenceRule: rule,
+            reminder: reminder
         )
     }
 }

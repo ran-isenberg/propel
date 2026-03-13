@@ -1,4 +1,5 @@
 import SwiftUI
+import UserNotifications
 
 @main
 struct PropelApp: App {
@@ -81,6 +82,8 @@ struct PropelApp: App {
             return
         }
 
+        aboutWindow = nil
+
         let aboutView = AboutView()
             .preferredColorScheme(.dark)
 
@@ -88,7 +91,6 @@ struct PropelApp: App {
         let window = NSWindow(contentViewController: hostingController)
         window.title = "About Propel"
         window.styleMask = [.titled, .closable]
-        window.isReleasedWhenClosed = false
         window.center()
         window.makeKeyAndOrderFront(nil)
         aboutWindow = window
@@ -98,10 +100,12 @@ struct PropelApp: App {
 // MARK: - App Delegate for Global Hotkey
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     var boardViewModel: BoardViewModel?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        UNUserNotificationCenter.current().delegate = self
+
         NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
             // Ctrl+Shift+N: Quick capture
             if event.modifierFlags.contains([.control, .shift]), event.keyCode == 45 { // N key
@@ -119,6 +123,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             return event
         }
+    }
+
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        completionHandler([.banner, .sound])
     }
 
     private func quickCapture() {

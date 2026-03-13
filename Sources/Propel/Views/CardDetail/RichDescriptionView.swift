@@ -55,9 +55,15 @@ struct RichDescriptionView: View {
         }
     }
 
+    private static let videoRegex = try? NSRegularExpression(
+        pattern: #"https://(?:www\.)?(?:youtube\.com/watch\?v=|youtu\.be/|vimeo\.com/)[\w\-]+"#
+    )
+    private static let linkRegex = try? NSRegularExpression(
+        pattern: #"https://[^\s<>\"\)]+"#
+    )
+
     private func extractVideoURLs(from text: String) -> [URL] {
-        let pattern = #"https://(?:www\.)?(?:youtube\.com/watch\?v=|youtu\.be/|vimeo\.com/)[\w\-]+"#
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
+        guard let regex = Self.videoRegex else { return [] }
         let range = NSRange(text.startIndex..., in: text)
         return regex.matches(in: text, range: range).compactMap { match in
             guard let range = Range(match.range, in: text) else { return nil }
@@ -68,8 +74,7 @@ struct RichDescriptionView: View {
     private static let allowedSchemes: Set<String> = ["https"]
 
     private func extractLinks(from text: String) -> [(String, URL)] {
-        let pattern = #"https://[^\s<>\"\)]+"#
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
+        guard let regex = Self.linkRegex else { return [] }
         let range = NSRange(text.startIndex..., in: text)
         return regex.matches(in: text, range: range).compactMap { match in
             guard let range = Range(match.range, in: text) else { return nil }

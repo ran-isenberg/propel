@@ -1,15 +1,31 @@
 import SwiftUI
 
 struct CardCreationPanel: View {
-    let targetColumnId: UUID
+    let initialColumnId: UUID
     @Environment(BoardViewModel.self) private var viewModel
 
+    @State private var selectedColumnId: UUID
     @State private var title = ""
     @State private var label: Label = .blogPost
     @State private var priority: Priority = .normal
     @State private var description = ""
     @State private var dueDate = Date()
     @State private var hasDueDate = false
+    @State private var showDatePicker = false
+    @State private var hasTime = false
+    @State private var reminder: ReminderOffset = .none
+    @State private var isRecurring = false
+    @State private var recurrenceFrequency: Frequency = .weekly
+    @State private var recurrenceInterval: Int = 1
+
+    private var availableColumns: [Column] {
+        viewModel.sortedColumns.filter { $0.status != .completed }
+    }
+
+    init(initialColumnId: UUID) {
+        self.initialColumnId = initialColumnId
+        _selectedColumnId = State(initialValue: initialColumnId)
+    }
 
     private var isValid: Bool {
         !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -68,6 +84,25 @@ struct CardCreationPanel: View {
                     .labelsHidden()
                 }
 
+                // Status (column)
+                HStack {
+                    Text("Status *")
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Picker("Status", selection: $selectedColumnId) {
+                        ForEach(availableColumns) { col in
+                            SwiftUI.Label {
+                                Text(col.name)
+                            } icon: {
+                                Image(systemName: col.status.headerIcon)
+                                    .foregroundStyle(col.status.headerColor)
+                            }
+                            .tag(col.id)
+                        }
+                    }
+                    .labelsHidden()
+                }
+
                 Divider()
 
                 // Description (optional)
@@ -98,8 +133,72 @@ struct CardCreationPanel: View {
                         .labelsHidden()
                 }
                 if hasDueDate {
-                    DatePicker("", selection: $dueDate, displayedComponents: .date)
+                    HStack {
+                        Button(dueDate.formatted(date: .abbreviated, time: .omitted)) {
+                            showDatePicker.toggle()
+                        }
+                        .popover(isPresented: $showDatePicker) {
+                            DatePicker("", selection: $dueDate, displayedComponents: .date)
+                                .datePickerStyle(.graphical)
+                                .labelsHidden()
+                                .padding()
+                                .onChange(of: dueDate) {
+                                    showDatePicker = false
+                                }
+                        }
+                        Spacer()
+                        Toggle("Time", isOn: $hasTime)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    if hasTime {
+                        DatePicker("", selection: $dueDate, displayedComponents: .hourAndMinute)
+                            .labelsHidden()
+                    }
+                }
+
+                // Reminder
+                if hasDueDate {
+                    HStack {
+                        Text("Reminder")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Picker("Reminder", selection: $reminder) {
+                            ForEach(ReminderOffset.allCases) { option in
+                                Text(option.displayName).tag(option)
+                            }
+                        }
                         .labelsHidden()
+                    }
+                }
+
+                // Recurring
+                HStack {
+                    Text("Recurring")
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Toggle("", isOn: $isRecurring)
+                        .labelsHidden()
+                        .onChange(of: isRecurring) {
+                            if isRecurring, !hasDueDate {
+                                hasDueDate = true
+                            }
+                        }
+                }
+                if isRecurring {
+                    HStack {
+                        Text("Every")
+                            .foregroundStyle(.secondary)
+                        TextField("", value: $recurrenceInterval, format: .number)
+                            .frame(width: 50)
+                            .textFieldStyle(.roundedBorder)
+                        Picker("", selection: $recurrenceFrequency) {
+                            ForEach(Frequency.allCases) { freq in
+                                Text(freq.displayName).tag(freq)
+                            }
+                        }
+                        .labelsHidden()
+                    }
                 }
 
                 Spacer()
@@ -128,13 +227,17 @@ struct CardCreationPanel: View {
     private func createCard() {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedTitle.isEmpty else { return }
+        let recurrenceRule = isRecurring ? RecurrenceRule(interval: min(max(1, recurrenceInterval), 999), frequency: recurrenceFrequency) : nil
         viewModel.createCard(
             title: trimmedTitle,
             label: label,
             priority: priority,
             description: description,
             dueDate: hasDueDate ? dueDate : nil,
-            inColumn: targetColumnId
+            isRecurring: isRecurring,
+            recurrenceRule: recurrenceRule,
+            reminder: hasDueDate ? reminder : .none,
+            inColumn: selectedColumnId
         )
     }
 }

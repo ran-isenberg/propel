@@ -77,18 +77,20 @@ struct ColumnView: View {
                         ColumnSortConfig(column: column)
                     }
 
-                    // Add button
-                    Button {
-                        viewModel.startCreatingCard(inColumn: column.id)
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.system(size: 15, weight: .medium))
-                            .foregroundStyle(.secondary)
-                            .frame(width: 24, height: 24)
-                            .contentShape(Rectangle())
+                    if !isCompletedColumn {
+                        // Add button
+                        Button {
+                            viewModel.startCreatingCard(inColumn: column.id)
+                        } label: {
+                            Image(systemName: "plus")
+                                .font(.system(size: 15, weight: .medium))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 24, height: 24)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .help("Add card to \(column.name)")
                     }
-                    .buttonStyle(.plain)
-                    .help("Add card to \(column.name)")
                 }
             }
             .padding(.horizontal, 12)
@@ -105,7 +107,7 @@ struct ColumnView: View {
                         }
 
                         // "+ Add Task" button at bottom
-                        if cards.isEmpty {
+                        if cards.isEmpty, !isCompletedColumn {
                             Button {
                                 viewModel.startCreatingCard(inColumn: column.id)
                             } label: {
