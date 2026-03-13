@@ -288,17 +288,38 @@ final class BoardViewModel {
         guard Self.isRunningInApp else { return }
         let now = Date()
         let calendar = Calendar.current
-        let tomorrow = calendar.date(byAdding: .day, value: 1, to: now) ?? now
+        let today = calendar.startOfDay(for: now)
+        let tomorrowStart = calendar.date(byAdding: .day, value: 1, to: today) ?? today
+        let dayAfterTomorrow = calendar.date(byAdding: .day, value: 2, to: today) ?? today
 
         for card in board.cards {
             guard let dueDate = card.dueDate else { continue }
+            // Skip completed cards
             if let completedColumn = column(for: .completed),
                card.columnId == completedColumn.id { continue }
+            // Skip cards with user-configured reminders (handled by scheduleReminder)
+            if card.reminder != .none { continue }
 
-            if dueDate < now {
-                await sendNotification(title: "Overdue", body: "\"\(card.title)\" is past due", id: "overdue-\(card.id)")
-            } else if dueDate <= tomorrow {
-                await sendNotification(title: "Due Soon", body: "\"\(card.title)\" is due tomorrow", id: "due-soon-\(card.id)")
+            let dueDay = calendar.startOfDay(for: dueDate)
+
+            if dueDay < today {
+                await sendNotification(
+                    title: "Overdue",
+                    body: "\"\(card.title)\" is past due",
+                    id: "overdue-\(card.id)"
+                )
+            } else if dueDay == today {
+                await sendNotification(
+                    title: "Due Today",
+                    body: "\"\(card.title)\" is due today",
+                    id: "due-soon-\(card.id)"
+                )
+            } else if dueDay >= tomorrowStart, dueDay < dayAfterTomorrow {
+                await sendNotification(
+                    title: "Due Tomorrow",
+                    body: "\"\(card.title)\" is due tomorrow",
+                    id: "due-soon-\(card.id)"
+                )
             }
         }
     }
@@ -327,7 +348,11 @@ final class BoardViewModel {
 
         let content = UNMutableNotificationContent()
         content.title = "Reminder"
-        content.body = "\"\(card.title)\" is \(card.reminder == .atDueDate ? "due now" : "due soon")"
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = dueDate == Calendar.current.startOfDay(for: dueDate) ? .none : .short
+        let dueString = formatter.string(from: dueDate)
+        content.body = "\"\(card.title)\" — due \(card.reminder == .atDueDate ? "now" : dueString)"
         content.sound = .default
 
         let comps = Calendar.current.dateComponents(
@@ -398,12 +423,39 @@ final class BoardViewModel {
         for index in board.cards.indices where board.cards[index].label == .blogPost {
             let existing = Set(board.cards[index].checklist.map(\.title))
             let missing = Self.blogPostDefaultChecklist.filter { !existing.contains($0.title) }
-            if !missing.isEmpty {
-                let startPos = (board.cards[index].checklist.map(\.position).max() ?? -1) + 1
-                let newItems = missing.enumerated().map { offset, item in
-                    ChecklistItem(title: item.title, position: startPos + offset)
+
+            // Check if default items are in correct relative order
+            let currentTitles = board.cards[index].checklist.map(\.title)
+            let defaultTitles = Set(Self.blogPostDefaultChecklist.map(\.title))
+            let currentDefaultOrder = currentTitles.filter { defaultTitles.contains($0) }
+            let expectedOrder = Self.blogPostDefaultChecklist.map(\.title).filter { existing.contains($0) }
+            let needsReorder = currentDefaultOrder != expectedOrder
+
+            if !missing.isEmpty || needsReorder {
+                // Build ordered list: default items first (in order), then any custom items
+                let customItems = board.cards[index].checklist.filter { !defaultTitles.contains($0.title) }
+                var merged: [ChecklistItem] = []
+                for defaultItem in Self.blogPostDefaultChecklist {
+                    if let existingItem = board.cards[index].checklist.first(where: { $0.title == defaultItem.title }) {
+                        merged.append(ChecklistItem(
+                            id: existingItem.id,
+                            title: existingItem.title,
+                            isCompleted: existingItem.isCompleted,
+                            position: merged.count
+                        ))
+                    } else {
+                        merged.append(ChecklistItem(title: defaultItem.title, position: merged.count))
+                    }
                 }
-                board.cards[index].checklist.append(contentsOf: newItems)
+                for item in customItems {
+                    merged.append(ChecklistItem(
+                        id: item.id,
+                        title: item.title,
+                        isCompleted: item.isCompleted,
+                        position: merged.count
+                    ))
+                }
+                board.cards[index].checklist = merged
                 board.cards[index].updatedAt = Date()
                 didModify = true
             }

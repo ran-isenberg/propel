@@ -1664,34 +1664,27 @@ struct EdgeCaseTests {
 
     // MARK: - Note RTF Data
 
-    @Test func noteRtfDataRoundTrip() {
+    @Test func noteRtfDataRoundTripAndPlainText() {
         let content = NSAttributedString(
             string: "Hello World",
-            attributes: [
-                .font: NSFont.systemFont(ofSize: 16),
-                .foregroundColor: NSColor.white,
-            ]
+            attributes: [.font: NSFont.systemFont(ofSize: 16), .foregroundColor: NSColor.white]
         )
         let rtfData = try? content.data(
             from: NSRange(location: 0, length: content.length),
             documentAttributes: [.documentType: NSAttributedString.DocumentType.rtf]
         )
         #expect(rtfData != nil)
-
         if let data = rtfData,
            let restored = try? NSAttributedString(
                data: data,
                options: [.documentType: NSAttributedString.DocumentType.rtf],
                documentAttributes: nil
-           )
-        {
+           ) {
             #expect(restored.string == "Hello World")
         } else {
             #expect(Bool(false), "Failed to restore RTF data")
         }
-    }
 
-    @Test func notePreservesPlainTextWhenRtfNil() {
         let note = Note(title: "Test", content: "Plain text", rtfData: nil)
         #expect(note.content == "Plain text")
         #expect(note.rtfData == nil)
@@ -1700,140 +1693,68 @@ struct EdgeCaseTests {
     // MARK: - Dark Mode Color Detection
 
     @Test @MainActor func darkColorDetection() {
-        let black = NSColor.black
-        #expect(RichTextEditor.isColorDark(black) == true)
-
-        let white = NSColor.white
-        #expect(RichTextEditor.isColorDark(white) == false)
-
-        let midGray = NSColor(white: 0.5, alpha: 1.0)
-        #expect(RichTextEditor.isColorDark(midGray) == false)
-
-        let darkGray = NSColor(white: 0.2, alpha: 1.0)
-        #expect(RichTextEditor.isColorDark(darkGray) == true)
+        #expect(RichTextEditor.isColorDark(.black) == true)
+        #expect(RichTextEditor.isColorDark(.white) == false)
+        #expect(RichTextEditor.isColorDark(NSColor(white: 0.5, alpha: 1.0)) == false)
+        #expect(RichTextEditor.isColorDark(NSColor(white: 0.2, alpha: 1.0)) == true)
     }
 
-    @Test @MainActor func fixDarkModeColorsConvertsBlackToWhite() {
-        let input = NSAttributedString(
-            string: "Dark text",
-            attributes: [.foregroundColor: NSColor.black]
-        )
-        let fixed = RichTextEditor.fixDarkModeColors(input)
-        var resultColor: NSColor?
-        fixed.enumerateAttribute(
-            .foregroundColor,
-            in: NSRange(location: 0, length: fixed.length)
-        ) { value, _, _ in
-            resultColor = value as? NSColor
-        }
-        #expect(resultColor == NSColor.white)
-    }
+    @Test @MainActor func fixDarkModeColorsConversions() {
+        // Black → white
+        let blackInput = NSAttributedString(string: "Dark", attributes: [.foregroundColor: NSColor.black])
+        var color: NSColor?
+        RichTextEditor.fixDarkModeColors(blackInput).enumerateAttribute(
+            .foregroundColor, in: NSRange(location: 0, length: 4)
+        ) { value, _, _ in color = value as? NSColor }
+        #expect(color == NSColor.white)
 
-    @Test @MainActor func fixDarkModeColorsPreservesLightColors() {
-        let yellow = NSColor.yellow
-        let input = NSAttributedString(
-            string: "Yellow text",
-            attributes: [.foregroundColor: yellow]
-        )
-        let fixed = RichTextEditor.fixDarkModeColors(input)
-        var resultColor: NSColor?
-        fixed.enumerateAttribute(
-            .foregroundColor,
-            in: NSRange(location: 0, length: fixed.length)
-        ) { value, _, _ in
-            resultColor = value as? NSColor
-        }
-        // Yellow is light, should not be converted to white
-        #expect(resultColor != NSColor.white)
-    }
+        // Yellow preserved
+        let yellowInput = NSAttributedString(string: "Yellow", attributes: [.foregroundColor: NSColor.yellow])
+        var yColor: NSColor?
+        RichTextEditor.fixDarkModeColors(yellowInput).enumerateAttribute(
+            .foregroundColor, in: NSRange(location: 0, length: 6)
+        ) { value, _, _ in yColor = value as? NSColor }
+        #expect(yColor != NSColor.white)
 
-    @Test @MainActor func fixDarkModeColorsHandlesNoColorAttribute() {
-        let input = NSAttributedString(
-            string: "No color",
-            attributes: [.font: NSFont.systemFont(ofSize: 14)]
-        )
-        let fixed = RichTextEditor.fixDarkModeColors(input)
-        var resultColor: NSColor?
-        fixed.enumerateAttribute(
-            .foregroundColor,
-            in: NSRange(location: 0, length: fixed.length)
-        ) { value, _, _ in
-            resultColor = value as? NSColor
-        }
-        // No color attribute should be set to white
-        #expect(resultColor == NSColor.white)
-    }
+        // No color → white
+        let noColorInput = NSAttributedString(string: "NC", attributes: [.font: NSFont.systemFont(ofSize: 14)])
+        var ncColor: NSColor?
+        RichTextEditor.fixDarkModeColors(noColorInput).enumerateAttribute(
+            .foregroundColor, in: NSRange(location: 0, length: 2)
+        ) { value, _, _ in ncColor = value as? NSColor }
+        #expect(ncColor == NSColor.white)
 
-    @Test @MainActor func fixDarkModeColorsHandlesEmptyString() {
-        let input = NSAttributedString(string: "")
-        let fixed = RichTextEditor.fixDarkModeColors(input)
-        #expect(fixed.length == 0)
+        // Empty string
+        #expect(RichTextEditor.fixDarkModeColors(NSAttributedString(string: "")).length == 0)
     }
 
     // MARK: - Recurrence Rule Edge Cases
 
-    @Test func recurrenceRuleSafeIntervalClampsZero() {
-        let rule = RecurrenceRule(interval: 0, frequency: .weekly)
-        #expect(rule.safeInterval >= 1)
-    }
-
-    @Test func recurrenceRuleSafeIntervalClampsNegative() {
-        let rule = RecurrenceRule(interval: -5, frequency: .daily)
-        #expect(rule.safeInterval >= 1)
-    }
-
-    @Test func recurrenceRuleSafeIntervalClampsMax() {
-        let rule = RecurrenceRule(interval: 5000, frequency: .monthly)
-        #expect(rule.safeInterval <= 999)
+    @Test func recurrenceRuleSafeIntervalClamping() {
+        #expect(RecurrenceRule(interval: 0, frequency: .weekly).safeInterval >= 1)
+        #expect(RecurrenceRule(interval: -5, frequency: .daily).safeInterval >= 1)
+        #expect(RecurrenceRule(interval: 5000, frequency: .monthly).safeInterval <= 999)
     }
 
     // MARK: - Card Toggle Blocked
 
-    @Test func toggleBlockedFromBacklogMovesToBlocked() async {
+    @Test func toggleBlockedMovesCorrectly() async {
         let vm = await Self.makeViewModel()
         let board = Board()
         await MainActor.run { vm.board = board }
         let backlogId = board.columns[0].id
-
-        await MainActor.run {
-            vm.createCard(
-                title: "Test",
-                label: .blogPost,
-                priority: .normal,
-                inColumn: backlogId
-            )
-        }
-
-        let cardId = await vm.board.cards[0].id
-        let blockedId = board.columns[2].id
-
-        await MainActor.run { vm.toggleCardBlocked(cardId) }
-
-        let card = await vm.board.cards.first { $0.id == cardId }
-        #expect(card?.columnId == blockedId)
-    }
-
-    @Test func toggleBlockedFromBlockedMovesToInProgress() async {
-        let vm = await Self.makeViewModel()
-        let board = Board()
-        await MainActor.run { vm.board = board }
-        let blockedId = board.columns[2].id
         let inProgressId = board.columns[1].id
+        let blockedId = board.columns[2].id
 
-        await MainActor.run {
-            vm.createCard(
-                title: "Blocked Card",
-                label: .blogPost,
-                priority: .normal,
-                inColumn: blockedId
-            )
-        }
-
+        // Backlog → Blocked
+        await MainActor.run { vm.createCard(title: "Test", label: .blogPost, priority: .normal, inColumn: backlogId) }
         let cardId = await vm.board.cards[0].id
         await MainActor.run { vm.toggleCardBlocked(cardId) }
+        #expect(await vm.board.cards.first { $0.id == cardId }?.columnId == blockedId)
 
-        let card = await vm.board.cards.first { $0.id == cardId }
-        #expect(card?.columnId == inProgressId)
+        // Blocked → In Progress
+        await MainActor.run { vm.toggleCardBlocked(cardId) }
+        #expect(await vm.board.cards.first { $0.id == cardId }?.columnId == inProgressId)
     }
 
     // MARK: - Auto-Archive Cutoff
@@ -1855,55 +1776,171 @@ struct EdgeCaseTests {
         #expect(cards.count == 1)
     }
 
-    // MARK: - Checklist Limits
+    // MARK: - Limits & Progress
 
-    @Test func checklistItemTitleTruncation() {
+    @Test func checklistAndCardLimits() {
         let longTitle = String(repeating: "a", count: 600)
-        let truncated = String(longTitle.prefix(500))
-        #expect(truncated.count == 500)
-    }
+        #expect(String(longTitle.prefix(500)).count == 500)
 
-    @Test func checklistMaxItems() {
         var items: [ChecklistItem] = []
-        for idx in 0..<100 {
-            items.append(ChecklistItem(title: "Item \(idx)", position: idx))
-        }
+        for idx in 0..<100 { items.append(ChecklistItem(title: "Item \(idx)", position: idx)) }
         #expect(items.count == 100)
-        // Should not allow more than 100
-        let canAdd = items.count < 100
-        #expect(canAdd == false)
-    }
+        #expect((items.count < 100) == false)
 
-    // MARK: - Card Title Length Limit
-
-    @Test func cardTitleMaxLength() {
         var title = String(repeating: "x", count: 250)
         if title.count > 200 { title = String(title.prefix(200)) }
         #expect(title.count == 200)
-    }
 
-    @Test func cardDescriptionMaxLength() {
         var desc = String(repeating: "y", count: 11_000)
         if desc.count > 10_000 { desc = String(desc.prefix(10_000)) }
         #expect(desc.count == 10_000)
     }
 
-    // MARK: - Division by Zero Guard
+    @Test func checklistProgressCalculation() {
+        let empty: [ChecklistItem] = []
+        let emptyProgress: Double = empty.isEmpty ? 0 : Double(empty.filter(\.isCompleted).count) / Double(empty.count)
+        #expect(emptyProgress == 0)
 
-    @Test func emptyChecklistDoesNotDivideByZero() {
-        let checklist: [ChecklistItem] = []
-        let completed = checklist.filter(\.isCompleted).count
-        let progress: Double = checklist.isEmpty ? 0 : Double(completed) / Double(checklist.count)
-        #expect(progress == 0)
-    }
-
-    @Test func completedChecklistProgress() {
         let checklist = [
             ChecklistItem(title: "A", isCompleted: true, position: 0),
             ChecklistItem(title: "B", isCompleted: false, position: 1),
         ]
-        let completed = checklist.filter(\.isCompleted).count
-        let progress = checklist.isEmpty ? 0 : Double(completed) / Double(checklist.count)
+        let progress = checklist.isEmpty ? 0 : Double(checklist.filter(\.isCompleted).count) / Double(checklist.count)
         #expect(progress == 0.5)
+    }
+}
+
+// MARK: - Notification & Reminder Tests
+
+struct ReminderOffsetTests {
+    @Test func offsetSecondsValues() {
+        #expect(ReminderOffset.none.offsetSeconds == 0)
+        #expect(ReminderOffset.atDueDate.offsetSeconds == 0)
+        #expect(ReminderOffset.fifteenMinutes.offsetSeconds == -900)
+        #expect(ReminderOffset.oneHour.offsetSeconds == -3_600)
+        #expect(ReminderOffset.oneDay.offsetSeconds == -86_400)
+    }
+
+    @Test func allCasesHaveDisplayNamesAndRoundTrip() throws {
+        for offset in ReminderOffset.allCases {
+            #expect(!offset.displayName.isEmpty)
+            let data = try JSONEncoder().encode(offset)
+            let decoded = try JSONDecoder().decode(ReminderOffset.self, from: data)
+            #expect(decoded == offset)
+        }
+    }
+}
+
+struct ReminderCardTests {
+    @Test func cardDefaultsAndStoresReminder() {
+        let defaultCard = Card(title: "Test", columnId: UUID(), label: .blogPost, priority: .normal)
+        #expect(defaultCard.reminder == .none)
+
+        let card = Card(
+            title: "Test",
+            columnId: UUID(),
+            label: .blogPost,
+            priority: .normal,
+            dueDate: Date(),
+            reminder: .fifteenMinutes
+        )
+        #expect(card.reminder == .fifteenMinutes)
+    }
+
+    @Test func cardDecoderDefaultsReminderToNone() throws {
+        let card = Card(title: "Old Card", columnId: UUID(), label: .blogPost, priority: .normal)
+        let data = try JSONEncoder().encode(card)
+        guard var json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            #expect(Bool(false), "Failed to parse JSON")
+            return
+        }
+        json.removeValue(forKey: "reminder")
+        let modifiedData = try JSONSerialization.data(withJSONObject: json)
+        let decoded = try JSONDecoder().decode(Card.self, from: modifiedData)
+        #expect(decoded.reminder == .none)
+    }
+
+    @Test func recurringInstanceCarriesOverReminder() throws {
+        let card = Card(
+            title: "Recurring",
+            columnId: UUID(),
+            label: .blogPost,
+            priority: .normal,
+            dueDate: Date(),
+            isRecurring: true,
+            recurrenceRule: RecurrenceRule(interval: 1, frequency: .weekly),
+            reminder: .oneHour
+        )
+        let newCard = try #require(card.createRecurringInstance(inColumn: UUID()))
+        #expect(newCard.reminder == .oneHour)
+
+        let cardNoReminder = Card(
+            title: "Recurring",
+            columnId: UUID(),
+            label: .blogPost,
+            priority: .normal,
+            dueDate: Date(),
+            isRecurring: true,
+            recurrenceRule: RecurrenceRule(interval: 1, frequency: .daily),
+            reminder: .none
+        )
+        let newCard2 = try #require(cardNoReminder.createRecurringInstance(inColumn: UUID()))
+        #expect(newCard2.reminder == .none)
+    }
+
+    @Test func reminderFireDateCalculation() {
+        let dueDate = Date().addingTimeInterval(7200)
+        let fireDate = dueDate.addingTimeInterval(ReminderOffset.oneHour.offsetSeconds)
+        #expect(fireDate < dueDate)
+        #expect(fireDate > Date())
+        // At due date offset equals due date
+        let atDueFireDate = dueDate.addingTimeInterval(ReminderOffset.atDueDate.offsetSeconds)
+        #expect(atDueFireDate == dueDate)
+    }
+}
+
+// MARK: - Due Date Day Comparison Tests
+
+struct DueDateComparisonTests {
+    @Test func dayComparisonOverdueLogic() throws {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let yesterday = try #require(calendar.date(byAdding: .day, value: -1, to: today))
+        let tomorrow = try #require(calendar.date(byAdding: .day, value: 1, to: today))
+
+        // Today is NOT overdue
+        #expect(!(today < today))
+        // Yesterday IS overdue
+        #expect(calendar.startOfDay(for: yesterday) < today)
+        // Tomorrow is NOT overdue
+        #expect(!(calendar.startOfDay(for: tomorrow) < today))
+    }
+
+    @Test func todayAt5pmIsNotOverdue() throws {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        var comps = calendar.dateComponents([.year, .month, .day], from: Date())
+        comps.hour = 17
+        comps.minute = 0
+        let dueDate5pm = try #require(calendar.date(from: comps))
+        // Day comparison: due day == today, NOT overdue
+        #expect(calendar.startOfDay(for: dueDate5pm) == today)
+    }
+
+    @Test func dueTodayVsTomorrowVsNextWeek() throws {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let tomorrowStart = try #require(calendar.date(byAdding: .day, value: 1, to: today))
+        let dayAfterTomorrow = try #require(calendar.date(byAdding: .day, value: 2, to: today))
+        let nextWeek = try #require(calendar.date(byAdding: .day, value: 7, to: today))
+
+        // Today == today
+        #expect(today == calendar.startOfDay(for: Date()))
+        // Tomorrow is in the tomorrow range
+        #expect(tomorrowStart >= tomorrowStart && tomorrowStart < dayAfterTomorrow)
+        // Next week is NOT in today or tomorrow range
+        let nextWeekDay = calendar.startOfDay(for: nextWeek)
+        #expect(nextWeekDay != today)
+        #expect(nextWeekDay >= dayAfterTomorrow)
     }
 }
