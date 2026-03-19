@@ -7,8 +7,13 @@ enum Label: String, Codable, CaseIterable, Identifiable, Sendable {
     case video = "Video"
     case podcast = "Podcast"
     case code = "Code"
+    case article = "Article"
 
     var id: String { rawValue }
+
+    static var sortedAllCases: [Self] {
+        allCases.sorted { $0.rawValue.localizedCaseInsensitiveCompare($1.rawValue) == .orderedAscending }
+    }
 
     var color: String {
         switch self {
@@ -17,6 +22,7 @@ enum Label: String, Codable, CaseIterable, Identifiable, Sendable {
         case .video: "red"
         case .podcast: "green"
         case .code: "cyan"
+        case .article: "orange"
         }
     }
 
@@ -27,6 +33,7 @@ enum Label: String, Codable, CaseIterable, Identifiable, Sendable {
         case .video: .red
         case .podcast: .green
         case .code: .cyan
+        case .article: .orange
         }
     }
 }

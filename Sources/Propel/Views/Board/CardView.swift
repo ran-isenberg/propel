@@ -146,7 +146,7 @@ struct PriorityBadge: View {
     private var badgeColor: Color {
         switch priority {
         case .urgent: .red
-        case .normal: .orange
+        case .normal: .green
         case .low: .gray
         }
     }

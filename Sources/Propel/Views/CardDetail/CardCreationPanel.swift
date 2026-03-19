@@ -57,7 +57,7 @@ struct CardCreationPanel: View {
                         .foregroundStyle(.secondary)
                     Spacer()
                     Picker("Label", selection: $label) {
-                        ForEach(Label.allCases) { l in
+                        ForEach(Label.sortedAllCases) { l in
                             SwiftUI.Label {
                                 Text(l.rawValue)
                             } icon: {

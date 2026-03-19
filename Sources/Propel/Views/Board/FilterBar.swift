@@ -15,7 +15,7 @@ struct FilterBar: View {
             Picker("Label", selection: $vm.filterLabel) {
                 Text("All Labels").tag(Label?.none)
                 Divider()
-                ForEach(Label.allCases) { label in
+                ForEach(Label.sortedAllCases) { label in
                     HStack {
                         Circle()
                             .fill(label.swiftUIColor)
