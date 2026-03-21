@@ -28,7 +28,7 @@ struct CardContextMenuModifier: ViewModifier {
 
                 // Change Label
                 Menu("Change Label") {
-                    ForEach(Label.allCases) { label in
+                    ForEach(Label.sortedAllCases) { label in
                         Button {
                             viewModel.changeCardLabel(card.id, to: label)
                         } label: {

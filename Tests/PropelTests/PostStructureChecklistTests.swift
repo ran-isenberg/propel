@@ -17,7 +17,9 @@ struct PostStructureChecklistTests {
         vm.createCard(title: "Blog", label: .blogPost, priority: .normal, inColumn: colId)
         let titles = vm.board.cards[0].checklist.map(\.title)
         #expect(titles[0] == "Post Structure")
-        #expect(titles[1] == "PR")
+        #expect(titles[1] == "Medium")
+        #expect(titles[2] == "LinkedIn Newsletter")
+        #expect(titles[3] == "PR")
     }
 
     @Test func postStructureRetroactiveAndNoDuplicates() async {
@@ -43,7 +45,9 @@ struct PostStructureChecklistTests {
         let updated0 = vm.board.cards[0]
         let titles0 = updated0.checklist.map(\.title)
         #expect(titles0[0] == "Post Structure")
-        #expect(titles0[1] == "PR")
+        #expect(titles0[1] == "Medium")
+        #expect(titles0[2] == "LinkedIn Newsletter")
+        #expect(titles0[3] == "PR")
         #expect(updated0.checklist.filter { $0.title == "PR" }.count == 1)
         #expect(updated0.checklist.first { $0.title == "PR" }?.isCompleted == true)
 
@@ -66,6 +70,8 @@ struct PostStructureChecklistTests {
             ChecklistItem(title: "X", position: 4),
             ChecklistItem(title: "Heroes", position: 5),
             ChecklistItem(title: "Post Structure", position: 6),
+            ChecklistItem(title: "Medium", position: 7),
+            ChecklistItem(title: "LinkedIn Newsletter", position: 8),
         ]
         board.cards.append(card)
         await MainActor.run { vm.board = board }
@@ -74,8 +80,10 @@ struct PostStructureChecklistTests {
         let updated = vm.board.cards[0]
         let titles = updated.checklist.map(\.title)
         #expect(titles[0] == "Post Structure")
-        #expect(titles[1] == "PR")
-        #expect(titles[2] == "Merge")
+        #expect(titles[1] == "Medium")
+        #expect(titles[2] == "LinkedIn Newsletter")
+        #expect(titles[3] == "PR")
+        #expect(titles[4] == "Merge")
         // Completion state preserved after reorder
         #expect(updated.checklist.first { $0.title == "Merge" }?.isCompleted == true)
         // No duplicates

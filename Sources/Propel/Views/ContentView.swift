@@ -133,6 +133,19 @@ struct ContentView: View {
             }
         }
         .background(Color(nsColor: .windowBackgroundColor))
+        .alert(
+            "Error",
+            isPresented: Binding(
+                get: { boardViewModel.errorMessage != nil },
+                set: { if !$0 { boardViewModel.errorMessage = nil } }
+            )
+        ) {
+            Button("OK") { boardViewModel.errorMessage = nil }
+        } message: {
+            if let msg = boardViewModel.errorMessage {
+                Text(msg)
+            }
+        }
         .toolbar {
             ToolbarItem(placement: .automatic) {
                 Button {

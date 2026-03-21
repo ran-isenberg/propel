@@ -378,12 +378,14 @@ final class BoardViewModel {
 
     private static let blogPostDefaultChecklist: [ChecklistItem] = [
         ChecklistItem(title: "Post Structure", position: 0),
-        ChecklistItem(title: "PR", position: 1),
-        ChecklistItem(title: "Merge", position: 2),
-        ChecklistItem(title: "GA", position: 3),
-        ChecklistItem(title: "LinkedIn", position: 4),
-        ChecklistItem(title: "X", position: 5),
-        ChecklistItem(title: "Heroes", position: 6),
+        ChecklistItem(title: "Medium", position: 1),
+        ChecklistItem(title: "LinkedIn Newsletter", position: 2),
+        ChecklistItem(title: "PR", position: 3),
+        ChecklistItem(title: "Merge", position: 4),
+        ChecklistItem(title: "GA", position: 5),
+        ChecklistItem(title: "LinkedIn", position: 6),
+        ChecklistItem(title: "X", position: 7),
+        ChecklistItem(title: "Heroes", position: 8),
     ]
 
     func createCard(
@@ -610,11 +612,19 @@ final class BoardViewModel {
 
     func changeStorageFolder(to url: URL) async {
         do {
+            let previousFolder = await StorageService.shared.currentStorageFolder
             try await StorageService.shared.changeStorageFolder(to: url)
-            // Reload from new location
-            board = try await StorageService.shared.loadBoard()
+            do {
+                // Reload board and notes from the new location
+                board = try await StorageService.shared.loadBoard()
+                addDefaultChecklistToBlogCards()
+            } catch {
+                // Loading failed — revert storage to prevent auto-save overwriting user files
+                try? await StorageService.shared.changeStorageFolder(to: previousFolder)
+                errorMessage = "Failed to load data from selected folder: \(error.localizedDescription)"
+            }
         } catch {
-            errorMessage = "Failed to change storage: \(error.localizedDescription)"
+            errorMessage = "Failed to change storage folder: \(error.localizedDescription)"
         }
     }
 

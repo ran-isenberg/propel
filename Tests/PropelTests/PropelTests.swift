@@ -288,8 +288,8 @@ struct PriorityTests {
 // MARK: - Label Tests
 
 struct LabelTests {
-    @Test func exactlyFiveLabels() {
-        #expect(Label.allCases.count == 5)
+    @Test func exactlySixLabels() {
+        #expect(Label.allCases.count == 6)
     }
 
     @Test func rawValues() {
@@ -303,7 +303,7 @@ struct LabelTests {
     @Test func distinctColors() {
         let colors = Label.allCases.map(\.color)
         let uniqueColors = Set(colors)
-        #expect(uniqueColors.count == 5)
+        #expect(uniqueColors.count == 6)
     }
 }
 
@@ -1573,9 +1573,11 @@ struct EdgeCaseTests {
         let card = await vm.board.cards.first
         let checklist = card?.checklist ?? []
         #expect(card != nil)
-        #expect(checklist.count == 7)
+        #expect(checklist.count == 9)
         let titles = checklist.map(\.title)
         #expect(titles.contains("Post Structure"))
+        #expect(titles.contains("Medium"))
+        #expect(titles.contains("LinkedIn Newsletter"))
         #expect(titles.contains("PR"))
         #expect(titles.contains("Merge"))
         #expect(titles.contains("GA"))

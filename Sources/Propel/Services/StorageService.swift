@@ -87,18 +87,18 @@ actor StorageService {
     func changeStorageFolder(to newFolder: URL) throws {
         let fm = FileManager.default
 
-        // Resolve symlinks to prevent symlink attacks
-        let resolvedFolder = newFolder.resolvingSymlinksInPath()
-        guard resolvedFolder.isFileURL else { return }
+        guard newFolder.isFileURL else { return }
 
         // Stop accessing old folder first
         stopAccessing()
 
-        // Start accessing the new folder before any file operations
-        let didStartAccess = resolvedFolder.startAccessingSecurityScopedResource()
+        // Start accessing the new folder before any file operations.
+        // Must use the original URL from NSOpenPanel — resolving symlinks
+        // creates a new URL that loses the security scope grant.
+        let didStartAccess = newFolder.startAccessingSecurityScopedResource()
 
         // Save security-scoped bookmark for persistent access across launches
-        if let bookmarkData = try? resolvedFolder.bookmarkData(
+        if let bookmarkData = try? newFolder.bookmarkData(
             options: .withSecurityScope,
             includingResourceValuesForKeys: nil,
             relativeTo: nil
@@ -106,10 +106,10 @@ actor StorageService {
             UserDefaults.standard.set(bookmarkData, forKey: Self.bookmarkKey)
         }
 
-        try fm.createDirectory(at: resolvedFolder, withIntermediateDirectories: true)
+        try fm.createDirectory(at: newFolder, withIntermediateDirectories: true)
 
-        let newBoardURL = resolvedFolder.appendingPathComponent("board.json")
-        let newNotesURL = resolvedFolder.appendingPathComponent("notes.json")
+        let newBoardURL = newFolder.appendingPathComponent("board.json")
+        let newNotesURL = newFolder.appendingPathComponent("notes.json")
 
         // Copy existing files to new location if they don't already exist there
         if fm.fileExists(atPath: boardFileURL.path), !fm.fileExists(atPath: newBoardURL.path) {
@@ -119,12 +119,12 @@ actor StorageService {
             try fm.copyItem(at: notesFileURL, to: newNotesURL)
         }
 
-        storageDir = resolvedFolder
+        storageDir = newFolder
         boardFileURL = newBoardURL
         notesFileURL = newNotesURL
         isAccessingSecurityScope = didStartAccess
 
-        UserDefaults.standard.set(resolvedFolder.path, forKey: Self.storageFolderKey)
+        UserDefaults.standard.set(newFolder.path, forKey: Self.storageFolderKey)
     }
 
     func resetStorageToDefault() throws {
