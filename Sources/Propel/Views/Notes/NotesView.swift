@@ -24,7 +24,7 @@ struct NotesView: View {
                                 isSelected: note.id == viewModel.selectedNoteId
                             )
                             .onTapGesture {
-                                viewModel.selectedNoteId = note.id
+                                flushAndSelect(note.id)
                             }
                             .contextMenu {
                                 Button("Delete", role: .destructive) {
@@ -41,6 +41,7 @@ struct NotesView: View {
 
                 // New note button
                 Button {
+                    flushCurrentEditor()
                     viewModel.createNote()
                 } label: {
                     HStack {
@@ -60,6 +61,7 @@ struct NotesView: View {
                     NoteEditorView(note: note) { updated in
                         viewModel.updateNote(updated)
                     }
+                    .id(note.id)
                 } else {
                     VStack {
                         Spacer()
@@ -71,6 +73,9 @@ struct NotesView: View {
                 }
             }
         }
+        .onChange(of: vm.searchText) { _, _ in
+            flushCurrentEditor()
+        }
         .alert("Delete Note", isPresented: $vm.showDeleteConfirmation) {
             Button("Cancel", role: .cancel) {
                 viewModel.noteToDelete = nil
@@ -81,5 +86,26 @@ struct NotesView: View {
         } message: {
             Text("Delete this note? This action cannot be undone.")
         }
+    }
+
+    /// Flush any pending NSTextView edits into the view model before switching notes.
+    private func flushCurrentEditor() {
+        guard let currentId = viewModel.selectedNoteId,
+              var currentNote = viewModel.store.notes.first(where: { $0.id == currentId }),
+              let textView = NSApp.keyWindow?.firstResponder as? NSTextView
+        else { return }
+
+        let attributed = textView.attributedString()
+        currentNote.content = attributed.string
+        currentNote.rtfData = try? attributed.data(
+            from: NSRange(location: 0, length: attributed.length),
+            documentAttributes: [.documentType: NSAttributedString.DocumentType.rtf]
+        )
+        viewModel.updateNote(currentNote)
+    }
+
+    private func flushAndSelect(_ noteId: UUID) {
+        flushCurrentEditor()
+        viewModel.selectedNoteId = noteId
     }
 }

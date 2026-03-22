@@ -121,7 +121,6 @@ struct NoteEditorView: View {
             RichDescriptionView(text: attributedContent.string)
         }
         .padding(16)
-        .id(note.id)
     }
 
     private var quickColors: [(name: String, color: Color)] {
