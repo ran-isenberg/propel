@@ -46,6 +46,7 @@ struct Board: Codable, Identifiable, Equatable, Sendable {
     var id: UUID
     var name: String
     var stages: [Stage]
+    var labels: [Label]
     var cards: [Card]
     var createdAt: Date
     var updatedAt: Date
@@ -59,6 +60,7 @@ struct Board: Codable, Identifiable, Equatable, Sendable {
         id: UUID = UUID(),
         name: String = "Propel",
         stages: [Stage]? = nil,
+        labels: [Label]? = nil,
         cards: [Card] = [],
         createdAt: Date = Date(),
         updatedAt: Date = Date()
@@ -66,7 +68,8 @@ struct Board: Codable, Identifiable, Equatable, Sendable {
         self.id = id
         self.name = name
         self.stages = Self.normalizedStages(stages ?? Self.defaultStages())
-        self.cards = Self.normalizedCards(cards, for: self.stages)
+        self.labels = Self.normalizedLabels(labels ?? Self.defaultLabels())
+        self.cards = Self.normalizedCards(cards, for: self.stages, labels: self.labels)
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
@@ -75,6 +78,7 @@ struct Board: Codable, Identifiable, Equatable, Sendable {
         case id
         case name
         case stages
+        case labels
         case cards
         case createdAt
         case updatedAt
@@ -90,9 +94,11 @@ struct Board: Codable, Identifiable, Equatable, Sendable {
 
         if let decodedStages = try container.decodeIfPresent([Stage].self, forKey: .stages) {
             stages = Self.normalizedStages(decodedStages)
+            labels = Self.normalizedLabels(try container.decodeIfPresent([Label].self, forKey: .labels) ?? Self.defaultLabels())
             cards = Self.normalizedCards(
                 try container.decodeIfPresent([Card].self, forKey: .cards) ?? [],
-                for: stages
+                for: stages,
+                labels: labels
             )
             return
         }
@@ -100,9 +106,11 @@ struct Board: Codable, Identifiable, Equatable, Sendable {
         let legacyColumns = try container.decodeIfPresent([LegacyColumn].self, forKey: .columns) ?? []
         let migrated = Self.migrateLegacyColumns(legacyColumns)
         stages = Self.normalizedStages(migrated.stages)
+        labels = Self.defaultLabels()
         cards = Self.normalizedCards(
             try container.decodeIfPresent([Card].self, forKey: .cards) ?? [],
             for: stages,
+            labels: labels,
             blockedLegacyStageId: migrated.blockedStageId,
             inProgressStageId: migrated.inProgressStageId
         )
@@ -113,6 +121,7 @@ struct Board: Codable, Identifiable, Equatable, Sendable {
         try container.encode(id, forKey: .id)
         try container.encode(name, forKey: .name)
         try container.encode(stages, forKey: .stages)
+        try container.encode(labels, forKey: .labels)
         try container.encode(cards, forKey: .cards)
         try container.encode(createdAt, forKey: .createdAt)
         try container.encode(updatedAt, forKey: .updatedAt)
@@ -124,6 +133,10 @@ struct Board: Codable, Identifiable, Equatable, Sendable {
             Stage(name: "In Progress", icon: "arrow.right.circle.fill", color: .blue, position: 1),
             Stage(name: "Completed", icon: "checkmark.circle.fill", color: .green, position: 2, isDoneStage: true)
         ]
+    }
+
+    static func defaultLabels() -> [Label] {
+        Label.defaults
     }
 
     var sortedStages: [Stage] {
@@ -229,12 +242,15 @@ struct Board: Codable, Identifiable, Equatable, Sendable {
     static func normalizedCards(
         _ cards: [Card],
         for stages: [Stage],
+        labels: [Label],
         blockedLegacyStageId: UUID? = nil,
         inProgressStageId: UUID? = nil
     ) -> [Card] {
         let validStageIds = Set(stages.map(\.id))
         let fallbackStageId = stages.first(where: \.isDefaultIntake)?.id ?? stages.first?.id
         let blockedTargetId = inProgressStageId ?? fallbackStageId
+        let labelMap = Dictionary(uniqueKeysWithValues: labels.map { ($0.id, $0) })
+        let fallbackLabel = labels.first ?? Label.blogPost
 
         return cards.map { card in
             var copy = card
@@ -255,8 +271,27 @@ struct Board: Codable, Identifiable, Equatable, Sendable {
                 copy.completedAt = nil
             }
 
+            copy.label = labelMap[copy.label.id] ?? labels.first(where: { $0.name == copy.label.name }) ?? fallbackLabel
+
             return copy
         }
+    }
+
+    static func normalizedLabels(_ labels: [Label]) -> [Label] {
+        let source = labels.isEmpty ? defaultLabels() : labels
+        var normalized: [Label] = []
+        var seenNames: Set<String> = []
+
+        for label in source {
+            let trimmedName = label.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedName.isEmpty else { continue }
+            let lowercased = trimmedName.lowercased()
+            guard !seenNames.contains(lowercased) else { continue }
+            seenNames.insert(lowercased)
+            normalized.append(Label(id: label.id, name: trimmedName, color: label.color))
+        }
+
+        return normalized.isEmpty ? defaultLabels() : normalized
     }
 
     private static func migrateLegacyColumns(_ columns: [LegacyColumn]) -> LegacyStageMigration {

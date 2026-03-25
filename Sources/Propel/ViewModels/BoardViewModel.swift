@@ -46,15 +46,17 @@ final class BoardViewModel {
     private var debouncedSave: DebouncedSave?
     private var notificationCheckTask: Task<Void, Never>?
 
-    init() {
+    init(autoLoad: Bool = true) {
         debouncedSave = DebouncedSave { [weak self] in
             await self?.persistBoard()
         }
-        Task {
-            await loadBoard()
-            requestNotificationPermission()
-            scheduleNotificationCheck()
-            await refreshDeliveredNotificationCount()
+        if autoLoad {
+            Task {
+                await loadBoard()
+                requestNotificationPermission()
+                scheduleNotificationCheck()
+                await refreshDeliveredNotificationCount()
+            }
         }
     }
 }
@@ -90,6 +92,10 @@ extension BoardViewModel {
 
     var doneStages: [Stage] {
         board.doneStages
+    }
+
+    var sortedLabels: [Label] {
+        board.labels.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
     var searchResults: [Card] {
@@ -353,7 +359,8 @@ extension BoardViewModel {
 
     private func scheduleSave() {
         board.stages = Board.normalizedStages(board.stages)
-        board.cards = Board.normalizedCards(board.cards, for: board.stages)
+        board.labels = Board.normalizedLabels(board.labels)
+        board.cards = Board.normalizedCards(board.cards, for: board.stages, labels: board.labels)
         board.updatedAt = Date()
         debouncedSave?.schedule()
     }
@@ -428,7 +435,7 @@ extension BoardViewModel {
             title: title,
             description: description,
             stageId: stageId,
-            label: label,
+            label: resolvedLabel(from: label),
             priority: priority,
             dueDate: dueDate,
             checklist: checklist,
@@ -519,6 +526,7 @@ extension BoardViewModel {
         var updated = card
         updated.updatedAt = Date()
         normalizeCardState(&updated)
+        updated.label = resolvedLabel(from: updated.label)
         board.cards[index] = updated
         scheduleReminder(for: updated)
         scheduleSave()
@@ -558,7 +566,7 @@ extension BoardViewModel {
 
     func changeCardLabel(_ cardId: UUID, to label: Label) {
         guard let index = board.cards.firstIndex(where: { $0.id == cardId }) else { return }
-        board.cards[index].label = label
+        board.cards[index].label = resolvedLabel(from: label)
         board.cards[index].updatedAt = Date()
         scheduleSave()
     }
@@ -671,10 +679,12 @@ extension BoardViewModel {
 
     func updateStage(_ stage: Stage) {
         guard let index = board.stages.firstIndex(where: { $0.id == stage.id }) else { return }
+        var stages = board.stages
+        var cards = board.cards
         var updated = stage
         updated.name = updated.name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !updated.name.isEmpty else { return }
-        guard board.stages.allSatisfy({
+        guard stages.allSatisfy({
             $0.id == updated.id || $0.name.localizedCaseInsensitiveCompare(updated.name) != .orderedSame
         }) else {
             errorMessage = "Stage names must be unique."
@@ -687,21 +697,25 @@ extension BoardViewModel {
         }
 
         if updated.isDefaultIntake {
-            for stageIndex in board.stages.indices where board.stages[stageIndex].id != updated.id {
-                board.stages[stageIndex].isDefaultIntake = false
+            for stageIndex in stages.indices where stages[stageIndex].id != updated.id {
+                stages[stageIndex].isDefaultIntake = false
             }
         }
 
-        board.stages[index] = updated
-        normalizeCardsForStageChanges()
+        stages[index] = updated
+        normalizeCards(&cards, stages: stages, labels: board.labels)
+        board.stages = stages
+        board.cards = cards
         scheduleSave()
     }
 
     func setDefaultIntakeStage(_ stageId: UUID) {
-        for index in board.stages.indices {
-            let isTarget = board.stages[index].id == stageId
-            board.stages[index].isDefaultIntake = isTarget && !board.stages[index].isDoneStage
+        var stages = board.stages
+        for index in stages.indices {
+            let isTarget = stages[index].id == stageId
+            stages[index].isDefaultIntake = isTarget && !stages[index].isDoneStage
         }
+        board.stages = stages
         scheduleSave()
     }
 
@@ -715,19 +729,23 @@ extension BoardViewModel {
 
     func deleteStage(_ stageId: UUID, replacementStageId: UUID) {
         guard board.stages.count > 1 else { return }
-        guard let replacementStage = stage(withId: replacementStageId), replacementStage.id != stageId else { return }
+        var stages = board.stages
+        var cards = board.cards
+        guard let replacementStage = stages.first(where: { $0.id == replacementStageId }), replacementStage.id != stageId else { return }
 
-        let deletedStageWasDefault = stage(withId: stageId)?.isDefaultIntake == true
+        let deletedStageWasDefault = stages.first(where: { $0.id == stageId })?.isDefaultIntake == true
 
-        for index in board.cards.indices where board.cards[index].stageId == stageId {
-            board.cards[index].stageId = replacementStageId
-            normalizeCardState(&board.cards[index], stage: replacementStage)
+        for index in cards.indices where cards[index].stageId == stageId {
+            cards[index].stageId = replacementStageId
+            normalizeCardState(&cards[index], stages: stages, labels: board.labels, stage: replacementStage)
         }
 
-        board.stages.removeAll { $0.id == stageId }
-        for index in board.stages.indices {
-            board.stages[index].position = index
+        stages.removeAll { $0.id == stageId }
+        for index in stages.indices {
+            stages[index].position = index
         }
+        board.stages = stages
+        board.cards = cards
         if deletedStageWasDefault {
             setDefaultIntakeStage(replacementStageId)
         } else {
@@ -737,6 +755,66 @@ extension BoardViewModel {
 
     func availableReplacementStages(excluding stageId: UUID) -> [Stage] {
         sortedStages.filter { $0.id != stageId }
+    }
+
+    func addLabel() -> UUID {
+        let existingNames = Set(board.labels.map(\.name))
+        let base = "New Label"
+        var candidate = base
+        var suffix = 2
+        while existingNames.contains(candidate) {
+            candidate = "\(base) \(suffix)"
+            suffix += 1
+        }
+
+        let label = Label(id: UUID(), name: candidate, color: nextLabelColor())
+        board.labels.append(label)
+        scheduleSave()
+        return label.id
+    }
+
+    func updateLabel(_ label: Label) {
+        guard let index = board.labels.firstIndex(where: { $0.id == label.id }) else { return }
+        var labels = board.labels
+        var cards = board.cards
+        let trimmedName = label.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else { return }
+        guard labels.allSatisfy({
+            $0.id == label.id || $0.name.localizedCaseInsensitiveCompare(trimmedName) != .orderedSame
+        }) else {
+            errorMessage = "Label names must be unique."
+            return
+        }
+
+        let updated = Label(id: label.id, name: trimmedName, color: label.color)
+        labels[index] = updated
+        for cardIndex in cards.indices where cards[cardIndex].label.id == updated.id {
+            cards[cardIndex].label = updated
+            cards[cardIndex].updatedAt = Date()
+        }
+        board.labels = labels
+        board.cards = cards
+        scheduleSave()
+    }
+
+    func deleteLabel(_ labelId: UUID, replacementLabelId: UUID) {
+        guard board.labels.count > 1 else { return }
+        var labels = board.labels
+        var cards = board.cards
+        guard let replacement = labels.first(where: { $0.id == replacementLabelId }), replacement.id != labelId else { return }
+
+        for cardIndex in cards.indices where cards[cardIndex].label.id == labelId {
+            cards[cardIndex].label = replacement
+            cards[cardIndex].updatedAt = Date()
+        }
+        labels.removeAll { $0.id == labelId }
+        board.labels = labels
+        board.cards = cards
+        scheduleSave()
+    }
+
+    func availableReplacementLabels(excluding labelId: UUID) -> [Label] {
+        sortedLabels.filter { $0.id != labelId }
     }
 
     func changeStorageFolder(to url: URL) async {
@@ -759,20 +837,64 @@ extension BoardViewModel {
         await StorageService.shared.currentStorageFolder
     }
 
-    private func normalizeCardsForStageChanges() {
-        for index in board.cards.indices {
-            normalizeCardState(&board.cards[index])
+    private func normalizeCards(_ cards: inout [Card], stages: [Stage], labels: [Label]) {
+        for index in cards.indices {
+            normalizeCardState(&cards[index], stages: stages, labels: labels)
         }
     }
 
-    private func normalizeCardState(_ card: inout Card, stage currentStage: Stage? = nil) {
-        guard let resolvedStage = currentStage ?? stage(withId: card.stageId) else { return }
+    private func normalizeCardState(
+        _ card: inout Card,
+        stages: [Stage]? = nil,
+        labels: [Label]? = nil,
+        stage currentStage: Stage? = nil
+    ) {
+        let activeStages = stages ?? board.stages
+        let activeLabels = labels ?? board.labels
+        guard let resolvedStage = currentStage ?? activeStages.first(where: { $0.id == card.stageId }) else { return }
         if resolvedStage.isDoneStage {
             card.completedAt = card.completedAt ?? Date()
             card.isBlocked = false
         } else {
             card.completedAt = nil
         }
+        card.label = resolvedLabel(from: card.label, labels: activeLabels)
+    }
+
+    private func resolvedLabel(from label: Label, labels: [Label]? = nil) -> Label {
+        let activeLabels = labels ?? board.labels
+        return activeLabels.first(where: { $0.id == label.id }) ??
+            activeLabels.first(where: { $0.name == label.name }) ??
+            activeLabels.first ??
+            label
+    }
+
+    private func nextLabelColor() -> StageColor {
+        let labelColorOrder: [StageColor] = [
+            .blue,
+            .purple,
+            .red,
+            .green,
+            .cyan,
+            .orange,
+            .yellow,
+            .teal,
+            .pink,
+            .slate,
+        ]
+
+        let counts = Dictionary(
+            board.labels.map { ($0.color, 1) },
+            uniquingKeysWith: +
+        )
+        return labelColorOrder.enumerated().min { lhs, rhs in
+            let lhsCount = counts[lhs.element, default: 0]
+            let rhsCount = counts[rhs.element, default: 0]
+            if lhsCount != rhsCount {
+                return lhsCount < rhsCount
+            }
+            return lhs.offset < rhs.offset
+        }?.element ?? .blue
     }
 }
 

@@ -6,7 +6,7 @@ struct CardCreationPanel: View {
 
     @State private var selectedStageId: UUID
     @State private var title = ""
-    @State private var label: Label = .blogPost
+    @State private var label: Label
     @State private var priority: Priority = .normal
     @State private var description = ""
     @State private var dueDate = Date()
@@ -25,6 +25,7 @@ struct CardCreationPanel: View {
     init(initialStageId: UUID) {
         self.initialStageId = initialStageId
         _selectedStageId = State(initialValue: initialStageId)
+        _label = State(initialValue: .blogPost)
     }
 
     private var isValid: Bool {
@@ -57,7 +58,7 @@ struct CardCreationPanel: View {
                         .foregroundStyle(.secondary)
                     Spacer()
                     Picker("Label", selection: $label) {
-                        ForEach(Label.sortedAllCases) { l in
+                        ForEach(viewModel.sortedLabels) { l in
                             SwiftUI.Label {
                                 Text(l.rawValue)
                             } icon: {
@@ -221,6 +222,11 @@ struct CardCreationPanel: View {
                 }
             }
             .padding(16)
+        }
+        .onAppear {
+            if let firstLabel = viewModel.sortedLabels.first {
+                label = firstLabel
+            }
         }
     }
 

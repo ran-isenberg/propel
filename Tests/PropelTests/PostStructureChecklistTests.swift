@@ -6,7 +6,7 @@ import Testing
 @MainActor
 struct PostStructureChecklistTests {
     private static func makeViewModel() async -> BoardViewModel {
-        let vm = BoardViewModel()
+        let vm = BoardViewModel(autoLoad: false)
         vm.board = Board()
         return vm
     }

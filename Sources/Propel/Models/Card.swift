@@ -132,7 +132,12 @@ struct Card: Codable, Identifiable, Equatable, Sendable {
         description = try container.decode(String.self, forKey: .description)
         stageId = try container.decodeIfPresent(UUID.self, forKey: .stageId)
             ?? container.decode(UUID.self, forKey: .columnId)
-        label = try container.decode(Label.self, forKey: .label)
+        if let decodedLabel = try? container.decode(Label.self, forKey: .label) {
+            label = decodedLabel
+        } else {
+            let legacyName = try container.decode(String.self, forKey: .label)
+            label = Label.legacy(named: legacyName)
+        }
         priority = try container.decode(Priority.self, forKey: .priority)
         dueDate = try container.decodeIfPresent(Date.self, forKey: .dueDate)
         checklist = try container.decode([ChecklistItem].self, forKey: .checklist)

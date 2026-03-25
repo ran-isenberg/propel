@@ -311,7 +311,7 @@ struct LabelTests {
 
 struct StageColorTests {
     @Test func allStageColorsExist() {
-        #expect(StageColor.allCases.count == 8)
+        #expect(StageColor.allCases.count == 10)
     }
 
     @Test func colorsHaveDistinctNames() {
@@ -427,7 +427,7 @@ struct CodableTests {
 @MainActor
 struct BoardViewModelTests {
     private func makeViewModel() -> BoardViewModel {
-        let vm = BoardViewModel()
+        let vm = BoardViewModel(autoLoad: false)
         // Reset to a fresh board (overrides the async load)
         vm.board = Board()
         return vm
@@ -835,7 +835,7 @@ struct NotesViewModelTests {
 @MainActor
 struct FilterTests {
     private func makeViewModel() -> BoardViewModel {
-        let vm = BoardViewModel()
+        let vm = BoardViewModel(autoLoad: false)
         vm.board = Board()
         return vm
     }
@@ -925,7 +925,7 @@ struct FilterTests {
 @MainActor
 struct ColumnSortTests {
     private func makeViewModel() -> BoardViewModel {
-        let vm = BoardViewModel()
+        let vm = BoardViewModel(autoLoad: false)
         vm.board = Board()
         return vm
     }
@@ -1006,7 +1006,7 @@ struct SortFieldTests {
 @MainActor
 struct SearchTests {
     private func makeViewModel() -> BoardViewModel {
-        let vm = BoardViewModel()
+        let vm = BoardViewModel(autoLoad: false)
         vm.board = Board()
         return vm
     }
@@ -1087,7 +1087,7 @@ struct SearchTests {
 @MainActor
 struct CollapsibleColumnsTests {
     private func makeViewModel() -> BoardViewModel {
-        let vm = BoardViewModel()
+        let vm = BoardViewModel(autoLoad: false)
         vm.board = Board()
         return vm
     }
@@ -1123,7 +1123,7 @@ struct CollapsibleColumnsTests {
 @MainActor
 struct AutoArchiveTests {
     private func makeViewModel() -> BoardViewModel {
-        let vm = BoardViewModel()
+        let vm = BoardViewModel(autoLoad: false)
         vm.board = Board()
         return vm
     }
@@ -1199,7 +1199,7 @@ struct StatusHeaderColorTests {
 @MainActor
 struct AttentionViewTests {
     private func makeViewModel() -> BoardViewModel {
-        let vm = BoardViewModel()
+        let vm = BoardViewModel(autoLoad: false)
         vm.board = Board()
         return vm
     }
@@ -1292,7 +1292,7 @@ struct AttentionViewTests {
 @MainActor
 struct WeeklyReviewTests {
     private func makeViewModel() -> BoardViewModel {
-        let vm = BoardViewModel()
+        let vm = BoardViewModel(autoLoad: false)
         vm.board = Board()
         return vm
     }
@@ -1357,7 +1357,7 @@ struct WeeklyReviewTests {
 @MainActor
 struct MenuBarBadgeTests {
     private func makeViewModel() -> BoardViewModel {
-        let vm = BoardViewModel()
+        let vm = BoardViewModel(autoLoad: false)
         vm.board = Board()
         return vm
     }
@@ -1383,7 +1383,7 @@ struct MenuBarBadgeTests {
 @MainActor
 struct EmojiSupportTests {
     private func makeViewModel() -> BoardViewModel {
-        let vm = BoardViewModel()
+        let vm = BoardViewModel(autoLoad: false)
         vm.board = Board()
         return vm
     }
@@ -1546,7 +1546,7 @@ struct EdgeCaseTests {
     /// Create a BoardViewModel and wait for its init's async loadBoard() to complete
     /// so subsequent board assignments aren't overwritten.
     private static func makeViewModel() async -> BoardViewModel {
-        let vm = await BoardViewModel()
+        let vm = await BoardViewModel(autoLoad: false)
         // Let the init's Task { await loadBoard() } finish before we set test data
         try? await Task.sleep(for: .milliseconds(100))
         return vm

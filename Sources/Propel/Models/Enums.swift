@@ -1,40 +1,63 @@
 import Foundation
 import SwiftUI
 
-enum Label: String, Codable, CaseIterable, Identifiable, Sendable {
-    case blogPost = "Blog Post"
-    case conferenceTalk = "Conference Talk"
-    case video = "Video"
-    case podcast = "Podcast"
-    case code = "Code"
-    case article = "Article"
+struct Label: Codable, Identifiable, Equatable, Hashable, Sendable {
+    var id: UUID
+    var name: String
+    var color: StageColor
 
-    var id: String { rawValue }
-
-    static var sortedAllCases: [Self] {
-        allCases.sorted { $0.rawValue.localizedCaseInsensitiveCompare($1.rawValue) == .orderedAscending }
-    }
-
-    var color: String {
-        switch self {
-        case .blogPost: "blue"
-        case .conferenceTalk: "purple"
-        case .video: "red"
-        case .podcast: "green"
-        case .code: "cyan"
-        case .article: "orange"
-        }
-    }
+    var rawValue: String { name }
 
     var swiftUIColor: Color {
-        switch self {
-        case .blogPost: .blue
-        case .conferenceTalk: .purple
-        case .video: .red
-        case .podcast: .green
-        case .code: .cyan
-        case .article: .orange
-        }
+        color.swiftUIColor
+    }
+
+    static let blogPost = Self(
+        id: UUID(uuidString: "11111111-1111-1111-1111-111111111111") ?? UUID(),
+        name: "Blog Post",
+        color: .blue
+    )
+    static let conferenceTalk = Self(
+        id: UUID(uuidString: "22222222-2222-2222-2222-222222222222") ?? UUID(),
+        name: "Conference Talk",
+        color: .purple
+    )
+    static let video = Self(
+        id: UUID(uuidString: "33333333-3333-3333-3333-333333333333") ?? UUID(),
+        name: "Video",
+        color: .red
+    )
+    static let podcast = Self(
+        id: UUID(uuidString: "44444444-4444-4444-4444-444444444444") ?? UUID(),
+        name: "Podcast",
+        color: .green
+    )
+    static let code = Self(
+        id: UUID(uuidString: "55555555-5555-5555-5555-555555555555") ?? UUID(),
+        name: "Code",
+        color: .cyan
+    )
+    static let article = Self(
+        id: UUID(uuidString: "66666666-6666-6666-6666-666666666666") ?? UUID(),
+        name: "Article",
+        color: .orange
+    )
+
+    static var defaults: [Self] {
+        [Self.blogPost, Self.conferenceTalk, Self.video, Self.podcast, Self.code, Self.article]
+    }
+
+    static var allCases: [Self] {
+        Self.defaults
+    }
+
+    static var sortedAllCases: [Self] {
+        defaults.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    static func legacy(named name: String) -> Self {
+        Self.defaults.first(where: { $0.name == name }) ??
+            Self(id: UUID(), name: name, color: .blue)
     }
 }
 
@@ -130,6 +153,8 @@ enum StageColor: String, Codable, CaseIterable, Identifiable, Sendable {
     case yellow
     case teal
     case pink
+    case purple
+    case cyan
 
     var id: String { rawValue }
 
@@ -147,6 +172,8 @@ enum StageColor: String, Codable, CaseIterable, Identifiable, Sendable {
         case .yellow: .yellow
         case .teal: .teal
         case .pink: .pink
+        case .purple: .purple
+        case .cyan: .cyan
         }
     }
 }

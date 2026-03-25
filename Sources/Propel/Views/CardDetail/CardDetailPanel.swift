@@ -17,6 +17,7 @@ struct CardDetailPanel: View {
                     onUpdate: { viewModel.updateCard($0) },
                     onDelete: { showDeleteConfirmation = true },
                     stages: viewModel.sortedStages,
+                    labels: viewModel.sortedLabels,
                     onMoveToStage: { viewModel.moveCard(cardId, toStage: $0) }
                 )
             } else {
@@ -40,6 +41,7 @@ private struct CardDetailContent: View {
     let onUpdate: (Card) -> Void
     let onDelete: () -> Void
     let stages: [Stage]
+    let labels: [Label]
     let onMoveToStage: (UUID) -> Void
 
     @State private var title: String
@@ -61,12 +63,14 @@ private struct CardDetailContent: View {
         onUpdate: @escaping (Card) -> Void,
         onDelete: @escaping () -> Void,
         stages: [Stage],
+        labels: [Label],
         onMoveToStage: @escaping (UUID) -> Void
     ) {
         self.card = card
         self.onUpdate = onUpdate
         self.onDelete = onDelete
         self.stages = stages
+        self.labels = labels
         self.onMoveToStage = onMoveToStage
         _title = State(initialValue: card.title)
         _description = State(initialValue: card.description)
@@ -87,6 +91,10 @@ private struct CardDetailContent: View {
         _reminder = State(initialValue: card.reminder)
     }
 
+    private var availableLabels: [Label] {
+        labels.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -101,13 +109,12 @@ private struct CardDetailContent: View {
 
                 Divider()
 
-                // Label
                 HStack {
                     Text("Label")
                         .foregroundStyle(.secondary)
                     Spacer()
                     Picker("Label", selection: $label) {
-                        ForEach(Label.sortedAllCases) { l in
+                        ForEach(availableLabels) { l in
                             SwiftUI.Label {
                                 Text(l.rawValue)
                             } icon: {

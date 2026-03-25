@@ -178,13 +178,13 @@ struct ContentView: View {
                 Button {
                     showStageEditor = true
                 } label: {
-                    SwiftUI.Label("Edit Stages", systemImage: "slider.horizontal.3")
+                    SwiftUI.Label("Configure Board", systemImage: "slider.horizontal.3")
                 }
                 .disabled(activeTab != .board)
             }
         }
         .sheet(isPresented: $showStageEditor) {
-            StageEditorView()
+            BoardConfigurationView()
         }
     }
 

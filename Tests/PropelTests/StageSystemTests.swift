@@ -63,6 +63,41 @@ struct StageModelTests {
     }
 }
 
+struct LabelModelTests {
+    @Test func boardInitializesWithDefaultLabels() {
+        let board = Board()
+
+        #expect(board.labels.count == 6)
+        #expect(board.labels.contains(where: { $0.name == "Blog Post" }))
+        #expect(board.labels.contains(where: { $0.name == "Conference Talk" }))
+    }
+
+    @Test func legacyLabelStringDecodesToDefaultLabel() throws {
+        let json = """
+        {
+          "id" : "\(UUID().uuidString)",
+          "title" : "Legacy card",
+          "description" : "",
+          "stageId" : "\(UUID().uuidString)",
+          "label" : "Video",
+          "priority" : "normal",
+          "checklist" : [],
+          "isRecurring" : false,
+          "reminder" : "none",
+          "createdAt" : "2026-03-24T10:00:00Z",
+          "updatedAt" : "2026-03-24T10:00:00Z"
+        }
+        """
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        let card = try decoder.decode(Card.self, from: Data(json.utf8))
+        #expect(card.label.name == "Video")
+        #expect(card.label.id == Label.video.id)
+    }
+}
+
 struct StageMigrationTests {
     @Test func legacyBoardDecodesAndMigratesBlockedColumnToFlag() throws {
         let backlogId = UUID()
@@ -149,7 +184,7 @@ struct StageMigrationTests {
 @MainActor
 struct StageWorkflowTests {
     private func makeViewModel() -> BoardViewModel {
-        let vm = BoardViewModel()
+        let vm = BoardViewModel(autoLoad: false)
         vm.board = Board()
         return vm
     }
@@ -200,5 +235,54 @@ struct StageWorkflowTests {
         #expect(vm.attentionCards.isEmpty)
         #expect(vm.doneCount == 1)
         #expect(vm.blockedCount == 0)
+    }
+}
+
+@MainActor
+struct LabelWorkflowTests {
+    private func makeViewModel() -> BoardViewModel {
+        let vm = BoardViewModel(autoLoad: false)
+        vm.board = Board()
+        return vm
+    }
+
+    @Test func updatingLabelSyncsExistingCards() {
+        let vm = makeViewModel()
+        let label = vm.board.labels[0]
+        vm.createCard(title: "Tagged", label: label, priority: .normal, inStage: vm.board.stages[0].id)
+
+        var updatedLabel = label
+        updatedLabel.name = "Essays"
+        updatedLabel.color = .purple
+        vm.updateLabel(updatedLabel)
+
+        #expect(vm.board.cards[0].label.name == "Essays")
+        #expect(vm.board.cards[0].label.color == .purple)
+    }
+
+    @Test func deletingLabelReassignsCardsToReplacement() {
+        let vm = makeViewModel()
+        let originalLabel = vm.board.labels[0]
+        let replacementLabel = vm.board.labels[1]
+        vm.createCard(title: "Tagged", label: originalLabel, priority: .normal, inStage: vm.board.stages[0].id)
+
+        vm.deleteLabel(originalLabel.id, replacementLabelId: replacementLabel.id)
+
+        #expect(vm.board.cards[0].label.id == replacementLabel.id)
+        #expect(vm.board.labels.contains(where: { $0.id == replacementLabel.id }))
+        #expect(!vm.board.labels.contains(where: { $0.id == originalLabel.id }))
+    }
+
+    @Test func addingLabelsCyclesThroughLeastUsedColors() {
+        let vm = makeViewModel()
+
+        let firstId = vm.addLabel()
+        let secondId = vm.addLabel()
+
+        let first = vm.board.labels.first(where: { $0.id == firstId })
+        let second = vm.board.labels.first(where: { $0.id == secondId })
+
+        #expect(first?.color == .yellow)
+        #expect(second?.color == .teal)
     }
 }
