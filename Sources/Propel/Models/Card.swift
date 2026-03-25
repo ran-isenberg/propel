@@ -18,7 +18,7 @@ struct Card: Codable, Identifiable, Equatable, Sendable {
     var id: UUID
     var title: String
     var description: String
-    var columnId: UUID
+    var stageId: UUID
     var label: Label
     var priority: Priority
     var dueDate: Date?
@@ -29,6 +29,46 @@ struct Card: Codable, Identifiable, Equatable, Sendable {
     var createdAt: Date
     var updatedAt: Date
     var completedAt: Date?
+    var isBlocked: Bool
+
+    var columnId: UUID {
+        get { stageId }
+        set { stageId = newValue }
+    }
+
+    init(
+        id: UUID = UUID(),
+        title: String,
+        description: String = "",
+        stageId: UUID,
+        label: Label,
+        priority: Priority = .normal,
+        dueDate: Date? = nil,
+        checklist: [ChecklistItem] = [],
+        isRecurring: Bool = false,
+        recurrenceRule: RecurrenceRule? = nil,
+        reminder: ReminderOffset = .none,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date(),
+        completedAt: Date? = nil,
+        isBlocked: Bool = false
+    ) {
+        self.id = id
+        self.title = title
+        self.description = description
+        self.stageId = stageId
+        self.label = label
+        self.priority = priority
+        self.dueDate = dueDate
+        self.checklist = checklist
+        self.isRecurring = isRecurring
+        self.recurrenceRule = recurrenceRule
+        self.reminder = reminder
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.completedAt = completedAt
+        self.isBlocked = isBlocked
+    }
 
     init(
         id: UUID = UUID(),
@@ -44,22 +84,45 @@ struct Card: Codable, Identifiable, Equatable, Sendable {
         reminder: ReminderOffset = .none,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
-        completedAt: Date? = nil
+        completedAt: Date? = nil,
+        isBlocked: Bool = false
     ) {
-        self.id = id
-        self.title = title
-        self.description = description
-        self.columnId = columnId
-        self.label = label
-        self.priority = priority
-        self.dueDate = dueDate
-        self.checklist = checklist
-        self.isRecurring = isRecurring
-        self.recurrenceRule = recurrenceRule
-        self.reminder = reminder
-        self.createdAt = createdAt
-        self.updatedAt = updatedAt
-        self.completedAt = completedAt
+        self.init(
+            id: id,
+            title: title,
+            description: description,
+            stageId: columnId,
+            label: label,
+            priority: priority,
+            dueDate: dueDate,
+            checklist: checklist,
+            isRecurring: isRecurring,
+            recurrenceRule: recurrenceRule,
+            reminder: reminder,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            completedAt: completedAt,
+            isBlocked: isBlocked
+        )
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case description
+        case stageId
+        case columnId
+        case label
+        case priority
+        case dueDate
+        case checklist
+        case isRecurring
+        case recurrenceRule
+        case reminder
+        case createdAt
+        case updatedAt
+        case completedAt
+        case isBlocked
     }
 
     init(from decoder: Decoder) throws {
@@ -67,8 +130,14 @@ struct Card: Codable, Identifiable, Equatable, Sendable {
         id = try container.decode(UUID.self, forKey: .id)
         title = try container.decode(String.self, forKey: .title)
         description = try container.decode(String.self, forKey: .description)
-        columnId = try container.decode(UUID.self, forKey: .columnId)
-        label = try container.decode(Label.self, forKey: .label)
+        stageId = try container.decodeIfPresent(UUID.self, forKey: .stageId)
+            ?? container.decode(UUID.self, forKey: .columnId)
+        if let decodedLabel = try? container.decode(Label.self, forKey: .label) {
+            label = decodedLabel
+        } else {
+            let legacyName = try container.decode(String.self, forKey: .label)
+            label = Label.legacy(named: legacyName)
+        }
         priority = try container.decode(Priority.self, forKey: .priority)
         dueDate = try container.decodeIfPresent(Date.self, forKey: .dueDate)
         checklist = try container.decode([ChecklistItem].self, forKey: .checklist)
@@ -78,10 +147,29 @@ struct Card: Codable, Identifiable, Equatable, Sendable {
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         updatedAt = try container.decode(Date.self, forKey: .updatedAt)
         completedAt = try container.decodeIfPresent(Date.self, forKey: .completedAt)
+        isBlocked = try container.decodeIfPresent(Bool.self, forKey: .isBlocked) ?? false
     }
 
-    /// Create a new recurring instance from this card with reset checklist and new due date.
-    func createRecurringInstance(inColumn columnId: UUID) -> Self? {
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(title, forKey: .title)
+        try container.encode(description, forKey: .description)
+        try container.encode(stageId, forKey: .stageId)
+        try container.encode(label, forKey: .label)
+        try container.encode(priority, forKey: .priority)
+        try container.encodeIfPresent(dueDate, forKey: .dueDate)
+        try container.encode(checklist, forKey: .checklist)
+        try container.encode(isRecurring, forKey: .isRecurring)
+        try container.encodeIfPresent(recurrenceRule, forKey: .recurrenceRule)
+        try container.encode(reminder, forKey: .reminder)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encode(updatedAt, forKey: .updatedAt)
+        try container.encodeIfPresent(completedAt, forKey: .completedAt)
+        try container.encode(isBlocked, forKey: .isBlocked)
+    }
+
+    func createRecurringInstance(inStage stageId: UUID) -> Self? {
         guard isRecurring, let rule = recurrenceRule, let currentDueDate = dueDate else {
             return nil
         }
@@ -92,7 +180,7 @@ struct Card: Codable, Identifiable, Equatable, Sendable {
         return Self(
             title: title,
             description: description,
-            columnId: columnId,
+            stageId: stageId,
             label: label,
             priority: priority,
             dueDate: newDueDate,
@@ -101,5 +189,9 @@ struct Card: Codable, Identifiable, Equatable, Sendable {
             recurrenceRule: rule,
             reminder: reminder
         )
+    }
+
+    func createRecurringInstance(inColumn columnId: UUID) -> Self? {
+        createRecurringInstance(inStage: columnId)
     }
 }

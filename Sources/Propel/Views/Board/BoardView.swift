@@ -5,8 +5,8 @@ struct BoardView: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            ForEach(viewModel.sortedColumns) { column in
-                ColumnView(column: column)
+            ForEach(viewModel.visibleStages) { stage in
+                ColumnView(column: stage)
                     .frame(maxWidth: .infinity)
             }
         }

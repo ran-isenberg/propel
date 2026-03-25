@@ -15,7 +15,7 @@ struct FilterBar: View {
             Picker("Label", selection: $vm.filterLabel) {
                 Text("All Labels").tag(Label?.none)
                 Divider()
-                ForEach(Label.sortedAllCases) { label in
+                ForEach(viewModel.sortedLabels) { label in
                     HStack {
                         Circle()
                             .fill(label.swiftUIColor)
@@ -60,6 +60,9 @@ struct FilterBar: View {
                         .font(.caption)
                 }
                 .foregroundStyle(.secondary)
+                .padding(.horizontal, 4)
+                .padding(.vertical, 3)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .help("Weekly Review")

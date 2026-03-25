@@ -1,12 +1,12 @@
 import SwiftUI
 
 struct CardCreationPanel: View {
-    let initialColumnId: UUID
+    let initialStageId: UUID
     @Environment(BoardViewModel.self) private var viewModel
 
-    @State private var selectedColumnId: UUID
+    @State private var selectedStageId: UUID
     @State private var title = ""
-    @State private var label: Label = .blogPost
+    @State private var label: Label
     @State private var priority: Priority = .normal
     @State private var description = ""
     @State private var dueDate = Date()
@@ -18,13 +18,14 @@ struct CardCreationPanel: View {
     @State private var recurrenceFrequency: Frequency = .weekly
     @State private var recurrenceInterval: Int = 1
 
-    private var availableColumns: [Column] {
-        viewModel.sortedColumns.filter { $0.status != .completed }
+    private var availableStages: [Stage] {
+        viewModel.sortedStages.filter(\.allowsManualCardCreation)
     }
 
-    init(initialColumnId: UUID) {
-        self.initialColumnId = initialColumnId
-        _selectedColumnId = State(initialValue: initialColumnId)
+    init(initialStageId: UUID) {
+        self.initialStageId = initialStageId
+        _selectedStageId = State(initialValue: initialStageId)
+        _label = State(initialValue: .blogPost)
     }
 
     private var isValid: Bool {
@@ -57,7 +58,7 @@ struct CardCreationPanel: View {
                         .foregroundStyle(.secondary)
                     Spacer()
                     Picker("Label", selection: $label) {
-                        ForEach(Label.sortedAllCases) { l in
+                        ForEach(viewModel.sortedLabels) { l in
                             SwiftUI.Label {
                                 Text(l.rawValue)
                             } icon: {
@@ -84,20 +85,20 @@ struct CardCreationPanel: View {
                     .labelsHidden()
                 }
 
-                // Status (column)
+                // Stage
                 HStack {
-                    Text("Status *")
+                    Text("Stage *")
                         .foregroundStyle(.secondary)
                     Spacer()
-                    Picker("Status", selection: $selectedColumnId) {
-                        ForEach(availableColumns) { col in
+                    Picker("Stage", selection: $selectedStageId) {
+                        ForEach(availableStages) { stage in
                             SwiftUI.Label {
-                                Text(col.name)
+                                Text(stage.name)
                             } icon: {
-                                Image(systemName: col.status.headerIcon)
-                                    .foregroundStyle(col.status.headerColor)
+                                Image(systemName: stage.icon)
+                                    .foregroundStyle(stage.color.swiftUIColor)
                             }
-                            .tag(col.id)
+                            .tag(stage.id)
                         }
                     }
                     .labelsHidden()
@@ -222,6 +223,11 @@ struct CardCreationPanel: View {
             }
             .padding(16)
         }
+        .onAppear {
+            if let firstLabel = viewModel.sortedLabels.first {
+                label = firstLabel
+            }
+        }
     }
 
     private func createCard() {
@@ -237,7 +243,7 @@ struct CardCreationPanel: View {
             isRecurring: isRecurring,
             recurrenceRule: recurrenceRule,
             reminder: hasDueDate ? reminder : .none,
-            inColumn: selectedColumnId
+            inStage: selectedStageId
         )
     }
 }

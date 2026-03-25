@@ -32,9 +32,9 @@ struct WeeklyReviewView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     // Stats summary
                     HStack(spacing: 16) {
-                        StatCard(title: "Completed", value: "\(data.completedCards.count)", color: .green, icon: "checkmark.circle.fill")
-                        StatCard(title: "Created", value: "\(data.createdCards.count)", color: .blue, icon: "plus.circle.fill")
-                        StatCard(title: "In Progress", value: "\(data.inProgressCards.count)", color: .orange, icon: "arrow.right.circle.fill")
+                        StatCard(title: "Done", value: "\(data.completedCards.count)", color: .green, icon: "checkmark.circle.fill")
+                        StatCard(title: "Active", value: "\(data.activeCards.count)", color: .blue, icon: "arrow.right.circle.fill")
+                        StatCard(title: "Blocked", value: "\(data.blockedCards.count)", color: .orange, icon: "xmark.octagon.fill")
                         StatCard(title: "Overdue", value: "\(data.overdueCards.count)", color: .red, icon: "exclamationmark.circle.fill")
                     }
 
@@ -72,10 +72,25 @@ struct WeeklyReviewView: View {
                         }
                     }
 
-                    // In progress
-                    if !data.inProgressCards.isEmpty {
-                        ReviewSection(title: "Still In Progress", icon: "arrow.right.circle.fill", color: .orange) {
-                            ForEach(data.inProgressCards) { card in
+                    if !data.blockedCards.isEmpty {
+                        ReviewSection(title: "Blocked", icon: "xmark.octagon.fill", color: .orange) {
+                            ForEach(data.blockedCards) { card in
+                                ReviewCardRow(card: card) {
+                                    Text("Blocked")
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(.orange)
+                                }
+                                .onTapGesture {
+                                    viewModel.selectCard(card.id)
+                                    dismiss()
+                                }
+                            }
+                        }
+                    }
+
+                    if !data.activeCards.isEmpty {
+                        ReviewSection(title: "Active", icon: "arrow.right.circle.fill", color: .blue) {
+                            ForEach(data.activeCards) { card in
                                 ReviewCardRow(card: card) {
                                     if let dueDate = card.dueDate {
                                         Text("Due \(dueDate, style: .date)")

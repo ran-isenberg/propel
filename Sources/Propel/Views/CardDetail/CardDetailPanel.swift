@@ -16,8 +16,9 @@ struct CardDetailPanel: View {
                     card: card,
                     onUpdate: { viewModel.updateCard($0) },
                     onDelete: { showDeleteConfirmation = true },
-                    columns: viewModel.sortedColumns,
-                    onMoveToColumn: { viewModel.moveCard(cardId, toColumn: $0) }
+                    stages: viewModel.sortedStages,
+                    labels: viewModel.sortedLabels,
+                    onMoveToStage: { viewModel.moveCard(cardId, toStage: $0) }
                 )
             } else {
                 Text("Card not found")
@@ -39,8 +40,9 @@ private struct CardDetailContent: View {
     var card: Card
     let onUpdate: (Card) -> Void
     let onDelete: () -> Void
-    let columns: [Column]
-    let onMoveToColumn: (UUID) -> Void
+    let stages: [Stage]
+    let labels: [Label]
+    let onMoveToStage: (UUID) -> Void
 
     @State private var title: String
     @State private var description: String
@@ -60,14 +62,16 @@ private struct CardDetailContent: View {
         card: Card,
         onUpdate: @escaping (Card) -> Void,
         onDelete: @escaping () -> Void,
-        columns: [Column],
-        onMoveToColumn: @escaping (UUID) -> Void
+        stages: [Stage],
+        labels: [Label],
+        onMoveToStage: @escaping (UUID) -> Void
     ) {
         self.card = card
         self.onUpdate = onUpdate
         self.onDelete = onDelete
-        self.columns = columns
-        self.onMoveToColumn = onMoveToColumn
+        self.stages = stages
+        self.labels = labels
+        self.onMoveToStage = onMoveToStage
         _title = State(initialValue: card.title)
         _description = State(initialValue: card.description)
         _label = State(initialValue: card.label)
@@ -87,6 +91,10 @@ private struct CardDetailContent: View {
         _reminder = State(initialValue: card.reminder)
     }
 
+    private var availableLabels: [Label] {
+        labels.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -101,13 +109,12 @@ private struct CardDetailContent: View {
 
                 Divider()
 
-                // Label
                 HStack {
                     Text("Label")
                         .foregroundStyle(.secondary)
                     Spacer()
                     Picker("Label", selection: $label) {
-                        ForEach(Label.sortedAllCases) { l in
+                        ForEach(availableLabels) { l in
                             SwiftUI.Label {
                                 Text(l.rawValue)
                             } icon: {
@@ -136,17 +143,17 @@ private struct CardDetailContent: View {
                     .onChange(of: priority) { saveChanges() }
                 }
 
-                // Status
+                // Stage
                 HStack {
-                    Text("Status")
+                    Text("Stage")
                         .foregroundStyle(.secondary)
                     Spacer()
-                    Picker("Status", selection: Binding(
-                        get: { card.columnId },
-                        set: { onMoveToColumn($0) }
+                    Picker("Stage", selection: Binding(
+                        get: { card.stageId },
+                        set: { onMoveToStage($0) }
                     )) {
-                        ForEach(columns) { column in
-                            Text(column.name).tag(column.id)
+                        ForEach(stages) { stage in
+                            Text(stage.name).tag(stage.id)
                         }
                     }
                     .labelsHidden()

@@ -136,8 +136,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     private func quickCapture() {
         guard let vm = boardViewModel else { return }
         NSApp.activate(ignoringOtherApps: true)
-        if let backlog = vm.column(for: .backlog) {
-            vm.startCreatingCard(inColumn: backlog.id)
-        }
+        vm.quickCreateInDefaultStage()
     }
 }

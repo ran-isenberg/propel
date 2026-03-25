@@ -17,52 +17,40 @@ struct CardView: View {
                 .foregroundStyle(.primary)
                 .padding(.bottom, 2)
 
-            // Subtitle: column name
-            if let col = viewModel.board.columns.first(where: { $0.id == card.columnId }) {
-                Text("In \(col.name)")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.tertiary)
-                    .padding(.bottom, 8)
-            }
-
-            // Checklist row
-            if !card.checklist.isEmpty {
-                CardPropertyRow(icon: "checklist") {
-                    ChecklistProgressView(checklist: card.checklist)
-                }
-            }
-
-            // Due date row
-            CardPropertyRow(icon: "calendar") {
-                if let dueDate = card.dueDate {
-                    let isOverdue = dueDate < Date()
-                    Text(dueDate, style: .date)
-                        .font(.system(size: 13))
-                        .foregroundStyle(isOverdue ? .red : .secondary)
-                } else {
-                    Text("-")
-                        .font(.system(size: 13))
-                        .foregroundStyle(.tertiary)
-                }
-            }
-
-            // Priority row
-            CardPropertyRow(icon: "flag.fill") {
-                PriorityBadge(priority: card.priority)
-            }
-
-            // Labels row
-            CardPropertyRow(icon: "tag") {
-                LabelBadge(label: card.label)
-            }
-
-            // Recurring indicator
-            if card.isRecurring {
-                CardPropertyRow(icon: "arrow.triangle.2.circlepath") {
-                    Text("Recurring")
+            // Subtitle: stage name
+            if let stage = viewModel.board.stages.first(where: { $0.id == card.stageId }) {
+                HStack(spacing: 6) {
+                    Text("In \(stage.name)")
                         .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.tertiary)
+                    if card.isBlocked {
+                        Text("Blocked")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.red)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(
+                                Capsule()
+                                    .fill(Color.red.opacity(0.15))
+                            )
+                    }
                 }
+                .padding(.bottom, 8)
+            }
+
+            HStack(spacing: 10) {
+                DueDateBadge(dueDate: card.dueDate)
+                PriorityBadge(priority: card.priority)
+                LabelBadge(label: card.label)
+
+                if card.isRecurring {
+                    RecurringBadge()
+                }
+            }
+            .padding(.bottom, card.checklist.isEmpty ? 0 : 8)
+
+            if !card.checklist.isEmpty {
+                ChecklistRow(checklist: card.checklist)
             }
         }
         .padding(12)
@@ -87,25 +75,6 @@ struct CardView: View {
     }
 }
 
-// MARK: - Card Property Row
-
-struct CardPropertyRow<Content: View>: View {
-    let icon: String
-    @ViewBuilder let content: () -> Content
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.system(size: 12))
-                .foregroundStyle(.tertiary)
-                .frame(width: 14, alignment: .center)
-            content()
-            Spacer()
-        }
-        .padding(.vertical, 3)
-    }
-}
-
 // MARK: - Label Badge
 
 struct LabelBadge: View {
@@ -125,6 +94,7 @@ struct LabelBadge: View {
                 RoundedRectangle(cornerRadius: 4)
                     .stroke(label.swiftUIColor.opacity(0.3), lineWidth: 0.5)
             )
+            .lineLimit(1)
     }
 }
 
@@ -149,6 +119,63 @@ struct PriorityBadge: View {
         case .normal: .orange
         case .low: .gray
         }
+    }
+}
+
+// MARK: - Due Date Badge
+
+struct DueDateBadge: View {
+    let dueDate: Date?
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "calendar")
+                .font(.system(size: 11))
+            if let dueDate {
+                Text(dueDate, style: .date)
+                    .font(.system(size: 12, weight: .medium))
+            } else {
+                Text("-")
+                    .font(.system(size: 12, weight: .medium))
+            }
+        }
+        .foregroundStyle(badgeColor)
+    }
+
+    private var badgeColor: Color {
+        guard let dueDate else { return .gray }
+        return dueDate < Date() ? .red : .secondary
+    }
+}
+
+// MARK: - Recurring Badge
+
+struct RecurringBadge: View {
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "arrow.triangle.2.circlepath")
+                .font(.system(size: 11))
+            Text("Recurring")
+                .font(.system(size: 12, weight: .medium))
+        }
+        .foregroundStyle(.secondary)
+    }
+}
+
+// MARK: - Checklist Row
+
+struct ChecklistRow: View {
+    let checklist: [ChecklistItem]
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "checklist")
+                .font(.system(size: 12))
+                .foregroundStyle(.tertiary)
+                .frame(width: 14, alignment: .center)
+            ChecklistProgressView(checklist: checklist)
+        }
+        .padding(.vertical, 3)
     }
 }
 

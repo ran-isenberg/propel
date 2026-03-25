@@ -17,28 +17,28 @@ struct MenuBarView: View {
             // Quick stats
             HStack(spacing: 16) {
                 MenuBarStat(
-                    icon: "tray",
-                    label: "Backlog",
-                    count: cardCount(for: .backlog),
-                    color: .secondary
-                )
-                MenuBarStat(
                     icon: "arrow.right.circle",
-                    label: "In Progress",
-                    count: cardCount(for: .inProgress),
+                    label: "Active",
+                    count: viewModel.activeCount,
                     color: .blue
                 )
                 MenuBarStat(
                     icon: "xmark.octagon",
                     label: "Blocked",
-                    count: cardCount(for: .blocked),
+                    count: viewModel.blockedCount,
                     color: .red
                 )
                 MenuBarStat(
                     icon: "checkmark.circle",
                     label: "Done",
-                    count: cardCount(for: .completed),
+                    count: viewModel.doneCount,
                     color: .green
+                )
+                MenuBarStat(
+                    icon: "exclamationmark.triangle",
+                    label: "Overdue",
+                    count: viewModel.overdueCount,
+                    color: .orange
                 )
             }
             .padding(.horizontal, 12)
@@ -85,9 +85,7 @@ struct MenuBarView: View {
             .padding(.horizontal, 12)
 
             Button {
-                if let backlog = viewModel.column(for: .backlog) {
-                    viewModel.startCreatingCard(inColumn: backlog.id)
-                }
+                viewModel.quickCreateInDefaultStage()
                 activateMainWindow()
             } label: {
                 HStack {
@@ -119,11 +117,6 @@ struct MenuBarView: View {
         } else {
             openWindow(id: "main")
         }
-    }
-
-    private func cardCount(for status: ColumnStatus) -> Int {
-        guard let column = viewModel.column(for: status) else { return 0 }
-        return viewModel.board.cards.count(where: { $0.columnId == column.id })
     }
 }
 

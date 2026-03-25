@@ -6,21 +6,21 @@ import Testing
 // MARK: - Board Tests
 
 struct BoardTests {
-    @Test func initializesWithDefaultColumns() {
+    @Test func initializesWithDefaultStages() {
         let board = Board()
-        #expect(board.columns.count == 4)
-        #expect(board.columns[0].status == .backlog)
-        #expect(board.columns[1].status == .inProgress)
-        #expect(board.columns[2].status == .blocked)
-        #expect(board.columns[3].status == .completed)
+        #expect(board.columns.count == 3)
+        #expect(board.columns[0].name == "Backlog")
+        #expect(board.columns[0].isDefaultIntake == true)
+        #expect(board.columns[1].name == "In Progress")
+        #expect(board.columns[2].name == "Completed")
+        #expect(board.columns[2].isDoneStage == true)
     }
 
-    @Test func defaultColumnsHaveCorrectNames() {
+    @Test func defaultStagesHaveCorrectNames() {
         let board = Board()
         #expect(board.columns[0].name == "Backlog")
         #expect(board.columns[1].name == "In Progress")
-        #expect(board.columns[2].name == "Blocked")
-        #expect(board.columns[3].name == "Completed")
+        #expect(board.columns[2].name == "Completed")
     }
 
     @Test func defaultColumnsHaveCorrectPositions() {
@@ -108,8 +108,8 @@ struct BoardTests {
 
     @Test func cardsForColumnEmptyReturnsEmpty() {
         let board = Board()
-        let blockedCards = board.cardsForColumn(board.columns[2])
-        #expect(blockedCards.isEmpty)
+        let doneCards = board.cardsForColumn(board.columns[2])
+        #expect(doneCards.isEmpty)
     }
 }
 
@@ -307,16 +307,16 @@ struct LabelTests {
     }
 }
 
-// MARK: - ColumnStatus Tests
+// MARK: - StageColor Tests
 
-struct ColumnStatusTests {
-    @Test func defaultOrderHasFourStatuses() {
-        #expect(ColumnStatus.defaultOrder.count == 4)
+struct StageColorTests {
+    @Test func allStageColorsExist() {
+        #expect(StageColor.allCases.count == 10)
     }
 
-    @Test func defaultOrderIsCorrect() {
-        let order = ColumnStatus.defaultOrder
-        #expect(order == [.backlog, .inProgress, .blocked, .completed])
+    @Test func colorsHaveDistinctNames() {
+        let names = Set(StageColor.allCases.map(\.displayName))
+        #expect(names.count == StageColor.allCases.count)
     }
 }
 
@@ -427,7 +427,7 @@ struct CodableTests {
 @MainActor
 struct BoardViewModelTests {
     private func makeViewModel() -> BoardViewModel {
-        let vm = BoardViewModel()
+        let vm = BoardViewModel(autoLoad: false)
         // Reset to a fresh board (overrides the async load)
         vm.board = Board()
         return vm
@@ -511,7 +511,7 @@ struct BoardViewModelTests {
     @Test func moveCardToCompletedSetsCompletedAt() {
         let vm = makeViewModel()
         let backlogId = vm.board.columns[0].id
-        let completedId = vm.board.columns[3].id
+        let completedId = vm.board.columns[2].id
         vm.createCard(title: "Done", label: .podcast, priority: .normal, inColumn: backlogId)
         let cardId = vm.board.cards[0].id
         vm.moveCard(cardId, toColumn: completedId)
@@ -521,7 +521,7 @@ struct BoardViewModelTests {
     @Test func moveCardOutOfCompletedClearsCompletedAt() {
         let vm = makeViewModel()
         let backlogId = vm.board.columns[0].id
-        let completedId = vm.board.columns[3].id
+        let completedId = vm.board.columns[2].id
         vm.createCard(title: "Reopen", label: .blogPost, priority: .normal, inColumn: backlogId)
         let cardId = vm.board.cards[0].id
         vm.moveCard(cardId, toColumn: completedId)
@@ -533,7 +533,7 @@ struct BoardViewModelTests {
     @Test func moveRecurringCardToCompletedCreatesNewInstance() throws {
         let vm = makeViewModel()
         let backlogId = vm.board.columns[0].id
-        let completedId = vm.board.columns[3].id
+        let completedId = vm.board.columns[2].id
         let card = Card(
             title: "Recurring",
             columnId: backlogId,
@@ -556,7 +556,7 @@ struct BoardViewModelTests {
     @Test func moveNonRecurringCardToCompletedDoesNotCreateNewInstance() {
         let vm = makeViewModel()
         let backlogId = vm.board.columns[0].id
-        let completedId = vm.board.columns[3].id
+        let completedId = vm.board.columns[2].id
         vm.createCard(title: "One-off", label: .blogPost, priority: .normal, inColumn: backlogId)
         vm.moveCard(vm.board.cards[0].id, toColumn: completedId)
         #expect(vm.board.cards.count == 1)
@@ -599,24 +599,25 @@ struct BoardViewModelTests {
         #expect(vm.board.cards[0].dueDate == nil)
     }
 
-    @Test func toggleCardBlockedMovesToBlocked() {
+    @Test func toggleCardBlockedSetsFlagInPlace() {
         let vm = makeViewModel()
         let inProgressId = vm.board.columns[1].id
-        let blockedId = vm.board.columns[2].id
         vm.createCard(title: "Block me", label: .video, priority: .normal, inColumn: inProgressId)
         let cardId = vm.board.cards[0].id
         vm.toggleCardBlocked(cardId)
-        #expect(vm.board.cards[0].columnId == blockedId)
+        #expect(vm.board.cards[0].columnId == inProgressId)
+        #expect(vm.board.cards[0].isBlocked == true)
     }
 
-    @Test func toggleCardBlockedUnblocksToInProgress() {
+    @Test func toggleCardBlockedClearsFlag() {
         let vm = makeViewModel()
-        let blockedId = vm.board.columns[2].id
         let inProgressId = vm.board.columns[1].id
-        vm.createCard(title: "Unblock me", label: .video, priority: .normal, inColumn: blockedId)
+        vm.createCard(title: "Unblock me", label: .video, priority: .normal, inColumn: inProgressId)
         let cardId = vm.board.cards[0].id
+        vm.board.cards[0].isBlocked = true
         vm.toggleCardBlocked(cardId)
         #expect(vm.board.cards[0].columnId == inProgressId)
+        #expect(vm.board.cards[0].isBlocked == false)
     }
 
     @Test func updateCard() {
@@ -634,18 +635,17 @@ struct BoardViewModelTests {
     @Test func sortedColumnsReturnsByPosition() {
         let vm = makeViewModel()
         let columns = vm.sortedColumns
-        #expect(columns.count == 4)
+        #expect(columns.count == 3)
         for i in 0 ..< columns.count {
             #expect(columns[i].position == i)
         }
     }
 
-    @Test func columnForStatusFindsCorrectColumn() {
+    @Test func defaultIntakeStageFindsCorrectStage() {
         let vm = makeViewModel()
-        #expect(vm.column(for: .backlog)?.status == .backlog)
-        #expect(vm.column(for: .inProgress)?.status == .inProgress)
-        #expect(vm.column(for: .blocked)?.status == .blocked)
-        #expect(vm.column(for: .completed)?.status == .completed)
+        #expect(vm.defaultIntakeStage?.name == "Backlog")
+        #expect(vm.doneStages.count == 1)
+        #expect(vm.doneStages.first?.name == "Completed")
     }
 
     @Test func sidePanelStateManagement() {
@@ -835,7 +835,7 @@ struct NotesViewModelTests {
 @MainActor
 struct FilterTests {
     private func makeViewModel() -> BoardViewModel {
-        let vm = BoardViewModel()
+        let vm = BoardViewModel(autoLoad: false)
         vm.board = Board()
         return vm
     }
@@ -925,7 +925,7 @@ struct FilterTests {
 @MainActor
 struct ColumnSortTests {
     private func makeViewModel() -> BoardViewModel {
-        let vm = BoardViewModel()
+        let vm = BoardViewModel(autoLoad: false)
         vm.board = Board()
         return vm
     }
@@ -1006,7 +1006,7 @@ struct SortFieldTests {
 @MainActor
 struct SearchTests {
     private func makeViewModel() -> BoardViewModel {
-        let vm = BoardViewModel()
+        let vm = BoardViewModel(autoLoad: false)
         vm.board = Board()
         return vm
     }
@@ -1087,7 +1087,7 @@ struct SearchTests {
 @MainActor
 struct CollapsibleColumnsTests {
     private func makeViewModel() -> BoardViewModel {
-        let vm = BoardViewModel()
+        let vm = BoardViewModel(autoLoad: false)
         vm.board = Board()
         return vm
     }
@@ -1123,14 +1123,14 @@ struct CollapsibleColumnsTests {
 @MainActor
 struct AutoArchiveTests {
     private func makeViewModel() -> BoardViewModel {
-        let vm = BoardViewModel()
+        let vm = BoardViewModel(autoLoad: false)
         vm.board = Board()
         return vm
     }
 
     @Test func recentCompletedCardsAreVisible() {
         let vm = makeViewModel()
-        let completedId = vm.board.columns[3].id
+        let completedId = vm.board.columns[2].id
         vm.board.cards.append(Card(
             title: "Just done",
             columnId: completedId,
@@ -1138,13 +1138,13 @@ struct AutoArchiveTests {
             completedAt: Date()
         ))
         vm.autoArchiveDays = 7
-        let cards = vm.cardsForColumn(vm.board.columns[3])
+        let cards = vm.cardsForColumn(vm.board.columns[2])
         #expect(cards.count == 1)
     }
 
     @Test func oldCompletedCardsAreHidden() throws {
         let vm = makeViewModel()
-        let completedId = vm.board.columns[3].id
+        let completedId = vm.board.columns[2].id
         let tenDaysAgo = try #require(Calendar.current.date(byAdding: .day, value: -10, to: Date()))
         vm.board.cards.append(Card(
             title: "Old done",
@@ -1153,13 +1153,13 @@ struct AutoArchiveTests {
             completedAt: tenDaysAgo
         ))
         vm.autoArchiveDays = 7
-        let cards = vm.cardsForColumn(vm.board.columns[3])
+        let cards = vm.cardsForColumn(vm.board.columns[2])
         #expect(cards.isEmpty)
     }
 
     @Test func disabledAutoArchiveShowsAll() throws {
         let vm = makeViewModel()
-        let completedId = vm.board.columns[3].id
+        let completedId = vm.board.columns[2].id
         let oldDate = try #require(Calendar.current.date(byAdding: .day, value: -30, to: Date()))
         vm.board.cards.append(Card(
             title: "Very old",
@@ -1168,30 +1168,29 @@ struct AutoArchiveTests {
             completedAt: oldDate
         ))
         vm.autoArchiveDays = 0
-        let cards = vm.cardsForColumn(vm.board.columns[3])
+        let cards = vm.cardsForColumn(vm.board.columns[2])
         #expect(cards.count == 1)
     }
 }
 
-// MARK: - V3: Status Header Color Tests
+// MARK: - V3: Stage Color Tests
 
 struct StatusHeaderColorTests {
-    @Test func eachStatusHasDistinctColor() {
-        let colors = ColumnStatus.allCases.map(\.headerColor)
-        // Just verify they exist and are accessible
-        #expect(colors.count == 4)
+    @Test func eachStageColorIsAccessible() {
+        let colors = StageColor.allCases.map(\.swiftUIColor)
+        #expect(colors.count == StageColor.allCases.count)
     }
 
-    @Test func blockedIsRed() {
-        #expect(ColumnStatus.blocked.headerColor == .red)
+    @Test func greenMapsToGreen() {
+        #expect(StageColor.green.swiftUIColor == .green)
     }
 
-    @Test func completedIsGreen() {
-        #expect(ColumnStatus.completed.headerColor == .green)
+    @Test func redMapsToRed() {
+        #expect(StageColor.red.swiftUIColor == .red)
     }
 
-    @Test func inProgressIsBlue() {
-        #expect(ColumnStatus.inProgress.headerColor == .blue)
+    @Test func blueMapsToBlue() {
+        #expect(StageColor.blue.swiftUIColor == .blue)
     }
 }
 
@@ -1200,7 +1199,7 @@ struct StatusHeaderColorTests {
 @MainActor
 struct AttentionViewTests {
     private func makeViewModel() -> BoardViewModel {
-        let vm = BoardViewModel()
+        let vm = BoardViewModel(autoLoad: false)
         vm.board = Board()
         return vm
     }
@@ -1234,18 +1233,18 @@ struct AttentionViewTests {
 
     @Test func blockedCardsAppearInAttention() {
         let vm = makeViewModel()
-        let blockedId = vm.board.columns[2].id
         vm.board.cards.append(Card(
             title: "Blocked card",
-            columnId: blockedId,
-            label: .blogPost
+            columnId: vm.board.columns[1].id,
+            label: .blogPost,
+            isBlocked: true
         ))
         #expect(vm.attentionCards.count == 1)
     }
 
     @Test func completedCardsExcludedFromAttention() throws {
         let vm = makeViewModel()
-        let completedId = vm.board.columns[3].id
+        let completedId = vm.board.columns[2].id
         let yesterday = try #require(Calendar.current.date(byAdding: .day, value: -1, to: Date()))
         vm.board.cards.append(Card(
             title: "Done overdue",
@@ -1281,9 +1280,9 @@ struct AttentionViewTests {
 
     @Test func blockedCountProperty() {
         let vm = makeViewModel()
-        let blockedId = vm.board.columns[2].id
-        vm.board.cards.append(Card(title: "B1", columnId: blockedId, label: .blogPost))
-        vm.board.cards.append(Card(title: "B2", columnId: blockedId, label: .video))
+        let activeId = vm.board.columns[1].id
+        vm.board.cards.append(Card(title: "B1", columnId: activeId, label: .blogPost, isBlocked: true))
+        vm.board.cards.append(Card(title: "B2", columnId: activeId, label: .video, isBlocked: true))
         #expect(vm.blockedCount == 2)
     }
 }
@@ -1293,14 +1292,14 @@ struct AttentionViewTests {
 @MainActor
 struct WeeklyReviewTests {
     private func makeViewModel() -> BoardViewModel {
-        let vm = BoardViewModel()
+        let vm = BoardViewModel(autoLoad: false)
         vm.board = Board()
         return vm
     }
 
     @Test func reviewDataCountsCompletedThisWeek() {
         let vm = makeViewModel()
-        let completedId = vm.board.columns[3].id
+        let completedId = vm.board.columns[2].id
         vm.board.cards.append(Card(
             title: "Done today",
             columnId: completedId,
@@ -1326,12 +1325,12 @@ struct WeeklyReviewTests {
         #expect(data.createdCards.count == 1)
     }
 
-    @Test func reviewDataCountsInProgress() {
+    @Test func reviewDataCountsActiveCards() {
         let vm = makeViewModel()
         let inProgressId = vm.board.columns[1].id
         vm.board.cards.append(Card(title: "WIP", columnId: inProgressId, label: .blogPost))
         let data = vm.weeklyReviewData
-        #expect(data.inProgressCards.count == 1)
+        #expect(data.activeCards.count == 1)
     }
 
     @Test func reviewDataCountsOverdue() throws {
@@ -1358,7 +1357,7 @@ struct WeeklyReviewTests {
 @MainActor
 struct MenuBarBadgeTests {
     private func makeViewModel() -> BoardViewModel {
-        let vm = BoardViewModel()
+        let vm = BoardViewModel(autoLoad: false)
         vm.board = Board()
         return vm
     }
@@ -1384,7 +1383,7 @@ struct MenuBarBadgeTests {
 @MainActor
 struct EmojiSupportTests {
     private func makeViewModel() -> BoardViewModel {
-        let vm = BoardViewModel()
+        let vm = BoardViewModel(autoLoad: false)
         vm.board = Board()
         return vm
     }
@@ -1547,7 +1546,7 @@ struct EdgeCaseTests {
     /// Create a BoardViewModel and wait for its init's async loadBoard() to complete
     /// so subsequent board assignments aren't overwritten.
     private static func makeViewModel() async -> BoardViewModel {
-        let vm = await BoardViewModel()
+        let vm = await BoardViewModel(autoLoad: false)
         // Let the init's Task { await loadBoard() } finish before we set test data
         try? await Task.sleep(for: .milliseconds(100))
         return vm
@@ -1745,18 +1744,16 @@ struct EdgeCaseTests {
         let board = Board()
         await MainActor.run { vm.board = board }
         let backlogId = board.columns[0].id
-        let inProgressId = board.columns[1].id
-        let blockedId = board.columns[2].id
 
-        // Backlog → Blocked
         await MainActor.run { vm.createCard(title: "Test", label: .blogPost, priority: .normal, inColumn: backlogId) }
         let cardId = await vm.board.cards[0].id
         await MainActor.run { vm.toggleCardBlocked(cardId) }
-        #expect(await vm.board.cards.first { $0.id == cardId }?.columnId == blockedId)
+        #expect(await vm.board.cards.first { $0.id == cardId }?.columnId == backlogId)
+        #expect(await vm.board.cards.first { $0.id == cardId }?.isBlocked == true)
 
-        // Blocked → In Progress
         await MainActor.run { vm.toggleCardBlocked(cardId) }
-        #expect(await vm.board.cards.first { $0.id == cardId }?.columnId == inProgressId)
+        #expect(await vm.board.cards.first { $0.id == cardId }?.columnId == backlogId)
+        #expect(await vm.board.cards.first { $0.id == cardId }?.isBlocked == false)
     }
 
     // MARK: - Auto-Archive Cutoff
@@ -1764,7 +1761,7 @@ struct EdgeCaseTests {
     @Test func autoArchiveWithZeroDaysShowsAllCompleted() async {
         let vm = await Self.makeViewModel()
         var board = Board()
-        let completedId = board.columns[3].id
+        let completedId = board.columns[2].id
         var card = Card(title: "Old Done", columnId: completedId, label: .blogPost)
         card.completedAt = Calendar.current.date(byAdding: .day, value: -30, to: Date())
         board.cards.append(card)
@@ -1773,7 +1770,7 @@ struct EdgeCaseTests {
             vm.autoArchiveDays = 0
         }
 
-        let completedColumn = board.columns[3]
+        let completedColumn = board.columns[2]
         let cards = await vm.cardsForColumn(completedColumn)
         #expect(cards.count == 1)
     }
