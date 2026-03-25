@@ -9,15 +9,15 @@ struct ColumnView: View {
     @State private var showCelebration = false
 
     private var isCompletedColumn: Bool {
-        column.status == .completed
+        column.isDoneStage
     }
 
     private var isCollapsed: Bool {
-        viewModel.isColumnCollapsed(column.id)
+        viewModel.isStageCollapsed(column.id)
     }
 
     private var cards: [Card] {
-        viewModel.cardsForColumn(column)
+        viewModel.cardsForStage(column)
     }
 
     var body: some View {
@@ -27,7 +27,7 @@ struct ColumnView: View {
                 // Collapse toggle
                 Button {
                     withAnimation(.easeInOut(duration: 0.2)) {
-                        viewModel.toggleColumnCollapsed(column.id)
+                        viewModel.toggleStageCollapsed(column.id)
                     }
                 } label: {
                     Image(systemName: isCollapsed ? "chevron.right" : "chevron.down")
@@ -38,20 +38,20 @@ struct ColumnView: View {
                 }
                 .buttonStyle(.plain)
 
-                // Status pill badge
+                // Stage pill badge
                 HStack(spacing: 5) {
-                    Image(systemName: column.status.headerIcon)
+                    Image(systemName: column.icon)
                         .font(.system(size: 11, weight: .bold))
                     Text(column.name.uppercased())
                         .font(.system(size: 13, weight: .bold))
                         .lineLimit(1)
                 }
-                .foregroundStyle(column.status.headerColor)
+                .foregroundStyle(column.color.swiftUIColor)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 4)
                 .background(
                     RoundedRectangle(cornerRadius: 6)
-                        .fill(column.status.headerColor.opacity(0.15))
+                        .fill(column.color.swiftUIColor.opacity(0.15))
                 )
                 .fixedSize()
 
@@ -79,10 +79,10 @@ struct ColumnView: View {
                         ColumnSortConfig(column: column)
                     }
 
-                    if !isCompletedColumn {
+                    if column.allowsManualCardCreation {
                         // Add button
                         Button {
-                            viewModel.startCreatingCard(inColumn: column.id)
+                            viewModel.startCreatingCard(inStage: column.id)
                         } label: {
                             Image(systemName: "plus")
                                 .font(.system(size: 15, weight: .medium))
@@ -109,9 +109,9 @@ struct ColumnView: View {
                         }
 
                         // "+ Add Task" button at bottom
-                        if cards.isEmpty, !isCompletedColumn {
+                        if cards.isEmpty, column.allowsManualCardCreation {
                             Button {
-                                viewModel.startCreatingCard(inColumn: column.id)
+                                viewModel.startCreatingCard(inStage: column.id)
                             } label: {
                                 HStack(spacing: 4) {
                                     Image(systemName: "plus")
@@ -161,9 +161,9 @@ struct ColumnView: View {
                 return false
             }
             let isNewArrival = isCompletedColumn &&
-                viewModel.board.cards.first(where: { $0.id == cardId })?.columnId != column.id
+                viewModel.board.cards.first(where: { $0.id == cardId })?.stageId != column.id
 
-            viewModel.moveCard(cardId, toColumn: column.id)
+            viewModel.moveCard(cardId, toStage: column.id)
 
             if isNewArrival {
                 celebrationId = UUID()

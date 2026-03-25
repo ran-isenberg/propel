@@ -69,8 +69,7 @@ struct AttentionCardView: View {
     }
 
     private var isBlocked: Bool {
-        guard let blockedColumn = viewModel.column(for: .blocked) else { return false }
-        return card.columnId == blockedColumn.id
+        card.isBlocked
     }
 
     private var statusColor: Color {

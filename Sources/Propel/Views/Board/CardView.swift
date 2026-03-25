@@ -17,12 +17,25 @@ struct CardView: View {
                 .foregroundStyle(.primary)
                 .padding(.bottom, 2)
 
-            // Subtitle: column name
-            if let col = viewModel.board.columns.first(where: { $0.id == card.columnId }) {
-                Text("In \(col.name)")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.tertiary)
-                    .padding(.bottom, 8)
+            // Subtitle: stage name
+            if let stage = viewModel.board.stages.first(where: { $0.id == card.stageId }) {
+                HStack(spacing: 6) {
+                    Text("In \(stage.name)")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.tertiary)
+                    if card.isBlocked {
+                        Text("Blocked")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.red)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(
+                                Capsule()
+                                    .fill(Color.red.opacity(0.15))
+                            )
+                    }
+                }
+                .padding(.bottom, 8)
             }
 
             // Checklist row

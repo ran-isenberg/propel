@@ -121,33 +121,32 @@ enum ReminderOffset: String, Codable, CaseIterable, Identifiable, Sendable {
     }
 }
 
-enum ColumnStatus: String, Codable, CaseIterable, Identifiable, Sendable {
-    case backlog = "Backlog"
-    case inProgress = "In Progress"
-    case blocked = "Blocked"
-    case completed = "Completed"
+enum StageColor: String, Codable, CaseIterable, Identifiable, Sendable {
+    case slate
+    case blue
+    case orange
+    case red
+    case green
+    case yellow
+    case teal
+    case pink
 
     var id: String { rawValue }
 
-    static var defaultOrder: [Self] {
-        [.backlog, .inProgress, .blocked, .completed]
+    var displayName: String {
+        rawValue.capitalized
     }
 
-    var headerColor: Color {
+    var swiftUIColor: Color {
         switch self {
-        case .backlog: .secondary
-        case .inProgress: .blue
-        case .blocked: .red
-        case .completed: .green
-        }
-    }
-
-    var headerIcon: String {
-        switch self {
-        case .backlog: "circle.dotted"
-        case .inProgress: "circle.lefthalf.filled"
-        case .blocked: "xmark.circle.fill"
-        case .completed: "checkmark.circle.fill"
+        case .slate: .secondary
+        case .blue: .blue
+        case .orange: .orange
+        case .red: .red
+        case .green: .green
+        case .yellow: .yellow
+        case .teal: .teal
+        case .pink: .pink
         }
     }
 }

@@ -9,6 +9,7 @@ struct ContentView: View {
     @Environment(BoardViewModel.self) private var boardViewModel
     @State private var activeTab: NavigationTab = .board
     @State private var isEditingBoardName = false
+    @State private var showStageEditor = false
     @FocusState private var boardNameFocused: Bool
 
     var body: some View {
@@ -164,9 +165,7 @@ struct ContentView: View {
             ToolbarItem(placement: .automatic) {
                 Button {
                     if activeTab == .board {
-                        if let backlogColumn = boardViewModel.column(for: .backlog) {
-                            boardViewModel.startCreatingCard(inColumn: backlogColumn.id)
-                        }
+                        boardViewModel.quickCreateInDefaultStage()
                     }
                 } label: {
                     SwiftUI.Label("New Card", systemImage: "plus")
@@ -174,6 +173,18 @@ struct ContentView: View {
                 .keyboardShortcut("n", modifiers: .command)
                 .disabled(activeTab != .board)
             }
+
+            ToolbarItem(placement: .automatic) {
+                Button {
+                    showStageEditor = true
+                } label: {
+                    SwiftUI.Label("Edit Stages", systemImage: "slider.horizontal.3")
+                }
+                .disabled(activeTab != .board)
+            }
+        }
+        .sheet(isPresented: $showStageEditor) {
+            StageEditorView()
         }
     }
 
@@ -197,8 +208,8 @@ struct ContentView: View {
             .padding(.horizontal, 12)
             .padding(.top, 8)
 
-            if boardViewModel.isCreatingCard, let columnId = boardViewModel.creationTargetColumnId {
-                CardCreationPanel(initialColumnId: columnId)
+            if boardViewModel.isCreatingCard, let stageId = boardViewModel.creationTargetStageId {
+                CardCreationPanel(initialStageId: stageId)
             } else if let cardId = boardViewModel.selectedCardId {
                 CardDetailPanel(cardId: cardId)
                     .id(cardId)
