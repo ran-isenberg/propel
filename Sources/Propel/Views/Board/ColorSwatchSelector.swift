@@ -4,7 +4,7 @@ struct ColorSwatchSelector: View {
     let title: String
     @Binding var selection: StageColor
 
-    private let columns = Array(repeating: GridItem(.flexible(minimum: 28, maximum: 40), spacing: 10), count: 5)
+    private let swatchSize: CGFloat = 24
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -21,14 +21,14 @@ struct ColorSwatchSelector: View {
                 }
             }
 
-            LazyVGrid(columns: columns, alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
                 ForEach(StageColor.allCases) { color in
                     Button {
                         selection = color
                     } label: {
                         Circle()
                             .fill(color.swiftUIColor)
-                            .frame(width: 24, height: 24)
+                            .frame(width: swatchSize, height: swatchSize)
                             .overlay {
                                 Circle()
                                     .strokeBorder(
