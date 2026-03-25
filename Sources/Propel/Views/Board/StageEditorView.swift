@@ -102,13 +102,10 @@ struct StageEditorView: View {
                         }
                     }
 
-                    Picker("Color", selection: binding(for: \.color, defaultValue: selectedStage.color)) {
-                        ForEach(StageColor.allCases) { color in
-                            SwiftUI.Label(color.displayName, systemImage: "circle.fill")
-                                .foregroundStyle(color.swiftUIColor)
-                                .tag(color)
-                        }
-                    }
+                    ColorSwatchSelector(
+                        title: "Color",
+                        selection: binding(for: \.color, defaultValue: selectedStage.color)
+                    )
 
                     Toggle(
                         "Done Stage",

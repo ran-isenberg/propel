@@ -97,13 +97,10 @@ private struct LabelEditorView: View {
                         text: binding(for: \.name, defaultValue: selectedLabel.name)
                     )
 
-                    Picker("Color", selection: binding(for: \.color, defaultValue: selectedLabel.color)) {
-                        ForEach(StageColor.allCases) { color in
-                            SwiftUI.Label(color.displayName, systemImage: "circle.fill")
-                                .foregroundStyle(color.swiftUIColor)
-                                .tag(color)
-                        }
-                    }
+                    ColorSwatchSelector(
+                        title: "Color",
+                        selection: binding(for: \.color, defaultValue: selectedLabel.color)
+                    )
                 }
                 .formStyle(.grouped)
                 .padding()
