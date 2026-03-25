@@ -60,6 +60,9 @@ struct FilterBar: View {
                         .font(.caption)
                 }
                 .foregroundStyle(.secondary)
+                .padding(.horizontal, 4)
+                .padding(.vertical, 3)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .help("Weekly Review")
