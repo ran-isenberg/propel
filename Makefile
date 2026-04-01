@@ -1,6 +1,6 @@
 APP_NAME = Propel
 BUNDLE_ID = com.ranisenberg.propel
-VERSION = 1.6.0
+VERSION = $(shell git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "0.0.0")
 BUILD_NUMBER = $(shell git rev-list --count HEAD)
 BUILD_DIR = .build
 DEBUG_DIR = $(BUILD_DIR)/debug
