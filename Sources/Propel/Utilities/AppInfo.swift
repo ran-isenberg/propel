@@ -17,7 +17,7 @@ enum AppInfo {
         // Use the bundle's creation date as a proxy for build time
         if let url = Bundle.main.executableURL,
            let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
-           let date = attrs[.creationDate] as? Date
+           let date = attrs[.modificationDate] as? Date
         {
             return formatter.string(from: date)
         }
