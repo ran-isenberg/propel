@@ -108,7 +108,7 @@ struct AttentionCardView: View {
             }
         }
         .padding(8)
-        .frame(width: 140)
+        .frame(width: 140, height: 70, alignment: .topLeading)
         .background(
             RoundedRectangle(cornerRadius: 6)
                 .fill(Color(nsColor: .controlBackgroundColor))
