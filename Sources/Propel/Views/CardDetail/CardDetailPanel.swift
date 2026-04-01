@@ -245,7 +245,7 @@ private struct CardDetailContent: View {
                     .foregroundStyle(.secondary)
                 TextEditor(text: $description)
                     .font(.body)
-                    .frame(minHeight: 100)
+                    .frame(minHeight: 50)
                     .scrollContentBackground(.hidden)
                     .padding(4)
                     .background(

@@ -727,6 +727,83 @@ struct BoardViewModelTests {
         #expect(vm.showSidePanel == true)
         #expect(vm.isCreatingCard == false)
     }
+
+    // MARK: - Checklist Add & Reorder
+
+    @Test func addChecklistItemToNonBlogPostCard() {
+        let vm = makeViewModel()
+        let colId = vm.board.columns[0].id
+        vm.createCard(title: "My Video", label: .video, priority: .normal, inColumn: colId)
+        var card = vm.board.cards[0]
+        #expect(card.checklist.isEmpty)
+        card.checklist.append(ChecklistItem(title: "Record", position: 0))
+        card.checklist.append(ChecklistItem(title: "Edit", position: 1))
+        vm.updateCard(card)
+        #expect(vm.board.cards[0].checklist.count == 2)
+        #expect(vm.board.cards[0].checklist[0].title == "Record")
+        #expect(vm.board.cards[0].checklist[1].title == "Edit")
+    }
+
+    @Test func addChecklistItemToAllCategories() {
+        let vm = makeViewModel()
+        let colId = vm.board.columns[0].id
+        let nonBlogLabels: [Label] = [.conferenceTalk, .video, .podcast, .code, .article]
+        for label in nonBlogLabels {
+            vm.createCard(title: "\(label.rawValue) task", label: label, priority: .normal, inColumn: colId)
+        }
+        for index in vm.board.cards.indices {
+            var card = vm.board.cards[index]
+            card.checklist.append(ChecklistItem(title: "Step 1", position: 0))
+            vm.updateCard(card)
+        }
+        for card in vm.board.cards {
+            #expect(card.checklist.count == 1)
+            #expect(card.checklist[0].title == "Step 1")
+        }
+    }
+
+    @Test func reorderChecklistItems() {
+        let vm = makeViewModel()
+        let colId = vm.board.columns[0].id
+        vm.createCard(title: "Task", label: .video, priority: .normal, inColumn: colId)
+        var card = vm.board.cards[0]
+        card.checklist = [
+            ChecklistItem(title: "A", position: 0),
+            ChecklistItem(title: "B", position: 1),
+            ChecklistItem(title: "C", position: 2),
+        ]
+        vm.updateCard(card)
+        // Simulate reorder: move C (index 2) to index 0
+        card = vm.board.cards[0]
+        let moved = card.checklist.remove(at: 2)
+        card.checklist.insert(moved, at: 0)
+        for i in card.checklist.indices { card.checklist[i].position = i }
+        vm.updateCard(card)
+        #expect(vm.board.cards[0].checklist.map(\.title) == ["C", "A", "B"])
+        #expect(vm.board.cards[0].checklist.map(\.position) == [0, 1, 2])
+    }
+
+    @Test func reorderChecklistPreservesCompletionState() {
+        let vm = makeViewModel()
+        let colId = vm.board.columns[0].id
+        vm.createCard(title: "Task", label: .podcast, priority: .normal, inColumn: colId)
+        var card = vm.board.cards[0]
+        card.checklist = [
+            ChecklistItem(title: "Done", isCompleted: true, position: 0),
+            ChecklistItem(title: "Pending", isCompleted: false, position: 1),
+        ]
+        vm.updateCard(card)
+        // Swap order
+        card = vm.board.cards[0]
+        let moved = card.checklist.remove(at: 1)
+        card.checklist.insert(moved, at: 0)
+        for i in card.checklist.indices { card.checklist[i].position = i }
+        vm.updateCard(card)
+        #expect(vm.board.cards[0].checklist[0].title == "Pending")
+        #expect(vm.board.cards[0].checklist[0].isCompleted == false)
+        #expect(vm.board.cards[0].checklist[1].title == "Done")
+        #expect(vm.board.cards[0].checklist[1].isCompleted == true)
+    }
 }
 
 // MARK: - NotesViewModel Tests
