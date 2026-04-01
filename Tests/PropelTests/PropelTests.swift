@@ -467,6 +467,57 @@ struct BoardViewModelTests {
         #expect(vm.board.cards.isEmpty)
     }
 
+    // MARK: - Clear Completed Cards
+
+    @Test func clearCompletedCardsRemovesOnlyCompletedCards() {
+        let vm = makeViewModel()
+        let backlogId = vm.board.columns[0].id
+        let completedId = vm.board.columns[3].id
+        vm.createCard(title: "Active", label: .blogPost, priority: .normal, inColumn: backlogId)
+        vm.createCard(title: "Done 1", label: .video, priority: .low, inColumn: backlogId)
+        vm.createCard(title: "Done 2", label: .podcast, priority: .normal, inColumn: backlogId)
+        vm.moveCard(vm.board.cards[1].id, toColumn: completedId)
+        vm.moveCard(vm.board.cards[2].id, toColumn: completedId)
+        vm.clearCompletedCards()
+        #expect(vm.board.cards.count == 1)
+        #expect(vm.board.cards[0].title == "Active")
+    }
+
+    @Test func clearCompletedCardsClearsSelectedCardIfCompleted() {
+        let vm = makeViewModel()
+        let backlogId = vm.board.columns[0].id
+        let completedId = vm.board.columns[3].id
+        vm.createCard(title: "Done", label: .blogPost, priority: .normal, inColumn: backlogId)
+        let cardId = vm.board.cards[0].id
+        vm.moveCard(cardId, toColumn: completedId)
+        vm.selectedCardId = cardId
+        vm.clearCompletedCards()
+        #expect(vm.board.cards.isEmpty)
+        #expect(vm.selectedCardId == nil)
+    }
+
+    @Test func clearCompletedCardsKeepsSelectedCardIfNotCompleted() {
+        let vm = makeViewModel()
+        let backlogId = vm.board.columns[0].id
+        let completedId = vm.board.columns[3].id
+        vm.createCard(title: "Active", label: .blogPost, priority: .normal, inColumn: backlogId)
+        vm.createCard(title: "Done", label: .video, priority: .low, inColumn: backlogId)
+        let activeId = vm.board.cards[0].id
+        vm.selectedCardId = activeId
+        vm.moveCard(vm.board.cards[1].id, toColumn: completedId)
+        vm.clearCompletedCards()
+        #expect(vm.board.cards.count == 1)
+        #expect(vm.selectedCardId == activeId)
+    }
+
+    @Test func clearCompletedCardsWhenNoneCompletedIsNoOp() {
+        let vm = makeViewModel()
+        let backlogId = vm.board.columns[0].id
+        vm.createCard(title: "Active", label: .blogPost, priority: .normal, inColumn: backlogId)
+        vm.clearCompletedCards()
+        #expect(vm.board.cards.count == 1)
+    }
+
     @Test func duplicateCardCreatesACopy() {
         let vm = makeViewModel()
         let colId = vm.board.columns[0].id

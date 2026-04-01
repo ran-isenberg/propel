@@ -5,6 +5,7 @@ struct ColumnView: View {
     @Environment(BoardViewModel.self) private var viewModel
     @State private var isTargeted = false
     @State private var showSortConfig = false
+    @State private var showClearConfirmation = false
     @State private var celebrationId = UUID()
     @State private var showCelebration = false
 
@@ -75,6 +76,21 @@ struct ColumnView: View {
                     .help("Sort options")
                     .popover(isPresented: $showSortConfig) {
                         ColumnSortConfig(column: column)
+                    }
+
+                    if isCompletedColumn && !cards.isEmpty {
+                        // Clear completed button
+                        Button {
+                            showClearConfirmation = true
+                        } label: {
+                            Image(systemName: "trash")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 24, height: 24)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .help("Clear all completed tasks")
                     }
 
                     if !isCompletedColumn {
@@ -150,6 +166,16 @@ struct ColumnView: View {
                 CompletionCelebration()
                     .id(celebrationId)
             }
+        }
+        .alert("Clear Completed Tasks", isPresented: $showClearConfirmation) {
+            Button("Clear All", role: .destructive) {
+                withAnimation {
+                    viewModel.clearCompletedCards()
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will permanently delete all \(cards.count) completed tasks. This action cannot be undone.")
         }
         .dropDestination(for: String.self) { items, _ in
             guard let cardIdString = items.first,

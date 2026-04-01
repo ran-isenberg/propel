@@ -479,9 +479,16 @@ final class BoardViewModel {
     func deleteCard(_ cardId: UUID) {
         cancelReminder(for: cardId)
         board.cards.removeAll { $0.id == cardId }
-        if selectedCardId == cardId {
-            selectedCardId = nil
-        }
+        if selectedCardId == cardId { selectedCardId = nil }
+        scheduleSave()
+    }
+
+    func clearCompletedCards() {
+        guard let col = column(for: .completed) else { return }
+        let ids = Set(board.cards.filter { $0.columnId == col.id }.map(\.id))
+        ids.forEach { cancelReminder(for: $0) }
+        board.cards.removeAll { ids.contains($0.id) }
+        if let selectedCardId, ids.contains(selectedCardId) { self.selectedCardId = nil }
         scheduleSave()
     }
 
@@ -489,8 +496,7 @@ final class BoardViewModel {
         guard let original = board.cards.first(where: { $0.id == cardId }) else { return }
         var copy = original
         copy.id = UUID()
-        copy.createdAt = Date()
-        copy.updatedAt = Date()
+        copy.createdAt = Date(); copy.updatedAt = Date()
         copy.completedAt = nil
         copy.checklist = original.checklist.map {
             ChecklistItem(id: UUID(), title: $0.title, isCompleted: false, position: $0.position)
