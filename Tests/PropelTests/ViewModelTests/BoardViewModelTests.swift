@@ -16,17 +16,17 @@ struct BoardViewModelTests {
     @Test func createCardAddsToBoard() {
         let vm = makeViewModel()
         let colId = vm.board.columns[0].id
-        vm.createCard(title: "New task", label: .blogPost, priority: .normal, inColumn: colId)
+        vm.createCard(title: "New task", labelId: LabelDefinition.blogPostId, priority: .normal, inColumn: colId)
         #expect(vm.board.cards.count == 1)
         #expect(vm.board.cards[0].title == "New task")
-        #expect(vm.board.cards[0].label == .blogPost)
+        #expect(vm.board.cards[0].labelId == LabelDefinition.blogPostId)
         #expect(vm.board.cards[0].columnId == colId)
     }
 
     @Test func createCardSelectsNewCard() {
         let vm = makeViewModel()
         let colId = vm.board.columns[0].id
-        vm.createCard(title: "Task", label: .video, priority: .urgent, inColumn: colId)
+        vm.createCard(title: "Task", labelId: LabelDefinition.videoId, priority: .urgent, inColumn: colId)
         #expect(vm.selectedCardId == vm.board.cards[0].id)
         #expect(vm.isCreatingCard == false)
     }
@@ -34,7 +34,7 @@ struct BoardViewModelTests {
     @Test func deleteCardRemovesFromBoard() {
         let vm = makeViewModel()
         let colId = vm.board.columns[0].id
-        vm.createCard(title: "To delete", label: .podcast, priority: .low, inColumn: colId)
+        vm.createCard(title: "To delete", labelId: LabelDefinition.podcastId, priority: .low, inColumn: colId)
         let cardId = vm.board.cards[0].id
         vm.deleteCard(cardId)
         #expect(vm.board.cards.isEmpty)
@@ -53,9 +53,9 @@ struct BoardViewModelTests {
         let vm = makeViewModel()
         let backlogId = vm.board.columns[0].id
         let completedId = vm.board.columns[3].id
-        vm.createCard(title: "Active", label: .blogPost, priority: .normal, inColumn: backlogId)
-        vm.createCard(title: "Done 1", label: .video, priority: .low, inColumn: backlogId)
-        vm.createCard(title: "Done 2", label: .podcast, priority: .normal, inColumn: backlogId)
+        vm.createCard(title: "Active", labelId: LabelDefinition.blogPostId, priority: .normal, inColumn: backlogId)
+        vm.createCard(title: "Done 1", labelId: LabelDefinition.videoId, priority: .low, inColumn: backlogId)
+        vm.createCard(title: "Done 2", labelId: LabelDefinition.podcastId, priority: .normal, inColumn: backlogId)
         vm.moveCard(vm.board.cards[1].id, toColumn: completedId)
         vm.moveCard(vm.board.cards[2].id, toColumn: completedId)
         vm.clearCompletedCards()
@@ -67,7 +67,7 @@ struct BoardViewModelTests {
         let vm = makeViewModel()
         let backlogId = vm.board.columns[0].id
         let completedId = vm.board.columns[3].id
-        vm.createCard(title: "Done", label: .blogPost, priority: .normal, inColumn: backlogId)
+        vm.createCard(title: "Done", labelId: LabelDefinition.blogPostId, priority: .normal, inColumn: backlogId)
         let cardId = vm.board.cards[0].id
         vm.moveCard(cardId, toColumn: completedId)
         vm.selectedCardId = cardId
@@ -80,8 +80,8 @@ struct BoardViewModelTests {
         let vm = makeViewModel()
         let backlogId = vm.board.columns[0].id
         let completedId = vm.board.columns[3].id
-        vm.createCard(title: "Active", label: .blogPost, priority: .normal, inColumn: backlogId)
-        vm.createCard(title: "Done", label: .video, priority: .low, inColumn: backlogId)
+        vm.createCard(title: "Active", labelId: LabelDefinition.blogPostId, priority: .normal, inColumn: backlogId)
+        vm.createCard(title: "Done", labelId: LabelDefinition.videoId, priority: .low, inColumn: backlogId)
         let activeId = vm.board.cards[0].id
         vm.selectedCardId = activeId
         vm.moveCard(vm.board.cards[1].id, toColumn: completedId)
@@ -93,7 +93,7 @@ struct BoardViewModelTests {
     @Test func clearCompletedCardsWhenNoneCompletedIsNoOp() {
         let vm = makeViewModel()
         let backlogId = vm.board.columns[0].id
-        vm.createCard(title: "Active", label: .blogPost, priority: .normal, inColumn: backlogId)
+        vm.createCard(title: "Active", labelId: LabelDefinition.blogPostId, priority: .normal, inColumn: backlogId)
         vm.clearCompletedCards()
         #expect(vm.board.cards.count == 1)
     }
@@ -101,7 +101,7 @@ struct BoardViewModelTests {
     @Test func duplicateCardCreatesACopy() {
         let vm = makeViewModel()
         let colId = vm.board.columns[0].id
-        vm.createCard(title: "Original", label: .blogPost, priority: .urgent, inColumn: colId)
+        vm.createCard(title: "Original", labelId: LabelDefinition.blogPostId, priority: .urgent, inColumn: colId)
         let originalId = vm.board.cards[0].id
         // Set description via update to avoid any parameter naming issues
         var card = vm.board.cards[0]
@@ -112,7 +112,7 @@ struct BoardViewModelTests {
         let copy = vm.board.cards[1]
         #expect(copy.title == "Original")
         #expect(copy.description == "Desc")
-        #expect(copy.label == .blogPost)
+        #expect(copy.labelId == LabelDefinition.blogPostId)
         #expect(copy.priority == .urgent)
         #expect(copy.id != originalId)
         #expect(copy.completedAt == nil)
@@ -122,7 +122,7 @@ struct BoardViewModelTests {
         let vm = makeViewModel()
         let backlogId = vm.board.columns[0].id
         let inProgressId = vm.board.columns[1].id
-        vm.createCard(title: "Moving", label: .video, priority: .normal, inColumn: backlogId)
+        vm.createCard(title: "Moving", labelId: LabelDefinition.videoId, priority: .normal, inColumn: backlogId)
         let cardId = vm.board.cards[0].id
         vm.moveCard(cardId, toColumn: inProgressId)
         #expect(vm.board.cards[0].columnId == inProgressId)
@@ -131,7 +131,7 @@ struct BoardViewModelTests {
     @Test func moveCardToSameColumnIsNoOp() {
         let vm = makeViewModel()
         let colId = vm.board.columns[0].id
-        vm.createCard(title: "Stay", label: .blogPost, priority: .normal, inColumn: colId)
+        vm.createCard(title: "Stay", labelId: LabelDefinition.blogPostId, priority: .normal, inColumn: colId)
         let cardId = vm.board.cards[0].id
         let updatedBefore = vm.board.cards[0].updatedAt
         vm.moveCard(cardId, toColumn: colId)
@@ -143,7 +143,7 @@ struct BoardViewModelTests {
         let vm = makeViewModel()
         let backlogId = vm.board.columns[0].id
         let completedId = vm.board.columns[3].id
-        vm.createCard(title: "Done", label: .podcast, priority: .normal, inColumn: backlogId)
+        vm.createCard(title: "Done", labelId: LabelDefinition.podcastId, priority: .normal, inColumn: backlogId)
         let cardId = vm.board.cards[0].id
         vm.moveCard(cardId, toColumn: completedId)
         #expect(vm.board.cards[0].completedAt != nil)
@@ -153,7 +153,7 @@ struct BoardViewModelTests {
         let vm = makeViewModel()
         let backlogId = vm.board.columns[0].id
         let completedId = vm.board.columns[3].id
-        vm.createCard(title: "Reopen", label: .blogPost, priority: .normal, inColumn: backlogId)
+        vm.createCard(title: "Reopen", labelId: LabelDefinition.blogPostId, priority: .normal, inColumn: backlogId)
         let cardId = vm.board.cards[0].id
         vm.moveCard(cardId, toColumn: completedId)
         #expect(vm.board.cards[0].completedAt != nil)
@@ -168,7 +168,7 @@ struct BoardViewModelTests {
         let card = Card(
             title: "Recurring",
             columnId: backlogId,
-            label: .video,
+            labelId: LabelDefinition.videoId,
             priority: .normal,
             dueDate: Date(),
             isRecurring: true,
@@ -188,7 +188,7 @@ struct BoardViewModelTests {
         let vm = makeViewModel()
         let backlogId = vm.board.columns[0].id
         let completedId = vm.board.columns[3].id
-        vm.createCard(title: "One-off", label: .blogPost, priority: .normal, inColumn: backlogId)
+        vm.createCard(title: "One-off", labelId: LabelDefinition.blogPostId, priority: .normal, inColumn: backlogId)
         vm.moveCard(vm.board.cards[0].id, toColumn: completedId)
         #expect(vm.board.cards.count == 1)
     }
@@ -196,7 +196,7 @@ struct BoardViewModelTests {
     @Test func changeCardPriority() {
         let vm = makeViewModel()
         let colId = vm.board.columns[0].id
-        vm.createCard(title: "Task", label: .blogPost, priority: .normal, inColumn: colId)
+        vm.createCard(title: "Task", labelId: LabelDefinition.blogPostId, priority: .normal, inColumn: colId)
         let cardId = vm.board.cards[0].id
         vm.changeCardPriority(cardId, to: .urgent)
         #expect(vm.board.cards[0].priority == .urgent)
@@ -205,16 +205,16 @@ struct BoardViewModelTests {
     @Test func changeCardLabel() {
         let vm = makeViewModel()
         let colId = vm.board.columns[0].id
-        vm.createCard(title: "Task", label: .blogPost, priority: .normal, inColumn: colId)
+        vm.createCard(title: "Task", labelId: LabelDefinition.blogPostId, priority: .normal, inColumn: colId)
         let cardId = vm.board.cards[0].id
-        vm.changeCardLabel(cardId, to: .podcast)
-        #expect(vm.board.cards[0].label == .podcast)
+        vm.changeCardLabel(cardId, to: LabelDefinition.podcastId)
+        #expect(vm.board.cards[0].labelId == LabelDefinition.podcastId)
     }
 
     @Test func changeCardDueDate() {
         let vm = makeViewModel()
         let colId = vm.board.columns[0].id
-        vm.createCard(title: "Task", label: .blogPost, priority: .normal, inColumn: colId)
+        vm.createCard(title: "Task", labelId: LabelDefinition.blogPostId, priority: .normal, inColumn: colId)
         let cardId = vm.board.cards[0].id
         let newDate = Date()
         vm.changeCardDueDate(cardId, to: newDate)
@@ -224,7 +224,7 @@ struct BoardViewModelTests {
     @Test func removeDueDate() {
         let vm = makeViewModel()
         let colId = vm.board.columns[0].id
-        vm.createCard(title: "Task", label: .blogPost, priority: .normal, dueDate: Date(), inColumn: colId)
+        vm.createCard(title: "Task", labelId: LabelDefinition.blogPostId, priority: .normal, dueDate: Date(), inColumn: colId)
         let cardId = vm.board.cards[0].id
         vm.changeCardDueDate(cardId, to: nil)
         #expect(vm.board.cards[0].dueDate == nil)
@@ -234,7 +234,7 @@ struct BoardViewModelTests {
         let vm = makeViewModel()
         let inProgressId = vm.board.columns[1].id
         let blockedId = vm.board.columns[2].id
-        vm.createCard(title: "Block me", label: .video, priority: .normal, inColumn: inProgressId)
+        vm.createCard(title: "Block me", labelId: LabelDefinition.videoId, priority: .normal, inColumn: inProgressId)
         let cardId = vm.board.cards[0].id
         vm.toggleCardBlocked(cardId)
         #expect(vm.board.cards[0].columnId == blockedId)
@@ -244,7 +244,7 @@ struct BoardViewModelTests {
         let vm = makeViewModel()
         let blockedId = vm.board.columns[2].id
         let inProgressId = vm.board.columns[1].id
-        vm.createCard(title: "Unblock me", label: .video, priority: .normal, inColumn: blockedId)
+        vm.createCard(title: "Unblock me", labelId: LabelDefinition.videoId, priority: .normal, inColumn: blockedId)
         let cardId = vm.board.cards[0].id
         vm.toggleCardBlocked(cardId)
         #expect(vm.board.cards[0].columnId == inProgressId)
@@ -253,7 +253,7 @@ struct BoardViewModelTests {
     @Test func updateCard() {
         let vm = makeViewModel()
         let colId = vm.board.columns[0].id
-        vm.createCard(title: "Old title", label: .blogPost, priority: .normal, inColumn: colId)
+        vm.createCard(title: "Old title", labelId: LabelDefinition.blogPostId, priority: .normal, inColumn: colId)
         var card = vm.board.cards[0]
         card.title = "New title"
         card.description = "Added description"
@@ -299,7 +299,7 @@ struct BoardViewModelTests {
         #expect(vm.isCreatingCard == false)
 
         // Select a card
-        vm.createCard(title: "Test", label: .blogPost, priority: .normal, inColumn: colId)
+        vm.createCard(title: "Test", labelId: LabelDefinition.blogPostId, priority: .normal, inColumn: colId)
         let cardId = vm.board.cards[0].id
         vm.closeSidePanel()
         vm.selectCard(cardId)
@@ -313,7 +313,7 @@ struct BoardViewModelTests {
     @Test func addChecklistItemToNonBlogPostCard() {
         let vm = makeViewModel()
         let colId = vm.board.columns[0].id
-        vm.createCard(title: "My Video", label: .video, priority: .normal, inColumn: colId)
+        vm.createCard(title: "My Video", labelId: LabelDefinition.videoId, priority: .normal, inColumn: colId)
         var card = vm.board.cards[0]
         #expect(card.checklist.isEmpty)
         card.checklist.append(ChecklistItem(title: "Record", position: 0))
@@ -327,9 +327,15 @@ struct BoardViewModelTests {
     @Test func addChecklistItemToAllCategories() {
         let vm = makeViewModel()
         let colId = vm.board.columns[0].id
-        let nonBlogLabels: [Label] = [.conferenceTalk, .video, .podcast, .code, .article]
-        for label in nonBlogLabels {
-            vm.createCard(title: "\(label.rawValue) task", label: label, priority: .normal, inColumn: colId)
+        let nonBlogLabelIds: [(String, UUID)] = [
+            ("Conference Talk", LabelDefinition.conferenceTalkId),
+            ("Video", LabelDefinition.videoId),
+            ("Podcast", LabelDefinition.podcastId),
+            ("Code", LabelDefinition.codeId),
+            ("Article", LabelDefinition.articleId),
+        ]
+        for (name, id) in nonBlogLabelIds {
+            vm.createCard(title: "\(name) task", labelId: id, priority: .normal, inColumn: colId)
         }
         for index in vm.board.cards.indices {
             var card = vm.board.cards[index]
@@ -345,7 +351,7 @@ struct BoardViewModelTests {
     @Test func reorderChecklistItems() {
         let vm = makeViewModel()
         let colId = vm.board.columns[0].id
-        vm.createCard(title: "Task", label: .video, priority: .normal, inColumn: colId)
+        vm.createCard(title: "Task", labelId: LabelDefinition.videoId, priority: .normal, inColumn: colId)
         var card = vm.board.cards[0]
         card.checklist = [
             ChecklistItem(title: "A", position: 0),
@@ -366,7 +372,7 @@ struct BoardViewModelTests {
     @Test func reorderChecklistPreservesCompletionState() {
         let vm = makeViewModel()
         let colId = vm.board.columns[0].id
-        vm.createCard(title: "Task", label: .podcast, priority: .normal, inColumn: colId)
+        vm.createCard(title: "Task", labelId: LabelDefinition.podcastId, priority: .normal, inColumn: colId)
         var card = vm.board.cards[0]
         card.checklist = [
             ChecklistItem(title: "Done", isCompleted: true, position: 0),
@@ -383,5 +389,77 @@ struct BoardViewModelTests {
         #expect(vm.board.cards[0].checklist[0].isCompleted == false)
         #expect(vm.board.cards[0].checklist[1].title == "Done")
         #expect(vm.board.cards[0].checklist[1].isCompleted == true)
+    }
+
+    // MARK: - Label Management
+
+    @Test func addLabelAppendsToBoard() {
+        let vm = makeViewModel()
+        let initialCount = vm.board.labels.count
+        vm.addLabel(name: "Workshop", colorName: "pink")
+        #expect(vm.board.labels.count == initialCount + 1)
+        #expect(vm.board.labels.last?.name == "Workshop")
+        #expect(vm.board.labels.last?.colorName == "pink")
+    }
+
+    @Test func updateLabelChangesNameAndColor() {
+        let vm = makeViewModel()
+        let labelId = vm.board.labels[0].id
+        vm.updateLabel(labelId, name: "Renamed", colorName: "indigo")
+        #expect(vm.board.labels[0].name == "Renamed")
+        #expect(vm.board.labels[0].colorName == "indigo")
+    }
+
+    @Test func deleteLabelWithNoCardsSucceeds() {
+        let vm = makeViewModel()
+        vm.addLabel(name: "Temp", colorName: "yellow")
+        let tempId = vm.board.labels.last?.id
+        let countBefore = vm.board.labels.count
+        vm.deleteLabel(tempId ?? UUID())
+        #expect(vm.board.labels.count == countBefore - 1)
+        #expect(vm.board.labels.contains { $0.name == "Temp" } == false)
+    }
+
+    @Test func deleteLabelWithCardsIsBlocked() {
+        let vm = makeViewModel()
+        let colId = vm.board.columns[0].id
+        let labelId = LabelDefinition.blogPostId
+        vm.createCard(title: "Assigned", labelId: labelId, priority: .normal, inColumn: colId)
+        #expect(vm.canDeleteLabel(labelId) == false)
+        let countBefore = vm.board.labels.count
+        vm.deleteLabel(labelId)
+        #expect(vm.board.labels.count == countBefore)
+    }
+
+    @Test func cannotDeleteLastLabel() {
+        let vm = makeViewModel()
+        // Remove all but one label
+        vm.board.labels = [vm.board.labels[0]]
+        #expect(vm.canDeleteLabel(vm.board.labels[0].id) == false)
+    }
+
+    @Test func cardsUsingLabelCountsCorrectly() {
+        let vm = makeViewModel()
+        let colId = vm.board.columns[0].id
+        let labelId = LabelDefinition.videoId
+        vm.createCard(title: "V1", labelId: labelId, priority: .normal, inColumn: colId)
+        vm.createCard(title: "V2", labelId: labelId, priority: .low, inColumn: colId)
+        vm.createCard(title: "Blog", labelId: LabelDefinition.blogPostId, priority: .normal, inColumn: colId)
+        #expect(vm.cardsUsingLabel(labelId) == 2)
+        #expect(vm.cardsUsingLabel(LabelDefinition.blogPostId) == 1)
+        #expect(vm.cardsUsingLabel(LabelDefinition.podcastId) == 0)
+    }
+
+    @Test func deleteLabelAfterReassigningCardsSucceeds() {
+        let vm = makeViewModel()
+        let colId = vm.board.columns[0].id
+        let labelId = LabelDefinition.articleId
+        vm.createCard(title: "Card", labelId: labelId, priority: .normal, inColumn: colId)
+        #expect(vm.canDeleteLabel(labelId) == false)
+        // Reassign the card to a different label
+        vm.changeCardLabel(vm.board.cards[0].id, to: LabelDefinition.blogPostId)
+        #expect(vm.canDeleteLabel(labelId) == true)
+        vm.deleteLabel(labelId)
+        #expect(vm.board.labels.contains { $0.id == labelId } == false)
     }
 }

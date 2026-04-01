@@ -42,7 +42,7 @@ struct WeeklyReviewView: View {
                     if !data.completedCards.isEmpty {
                         ReviewSection(title: "Completed This Week", icon: "checkmark.circle.fill", color: .green) {
                             ForEach(data.completedCards) { card in
-                                ReviewCardRow(card: card) {
+                                ReviewCardRow(card: card, labelColor: viewModel.board.label(for: card.labelId).swiftUIColor) {
                                     if let completedAt = card.completedAt {
                                         Text("Completed \(completedAt, style: .relative) ago")
                                             .font(.system(size: 12))
@@ -57,7 +57,7 @@ struct WeeklyReviewView: View {
                     if !data.overdueCards.isEmpty {
                         ReviewSection(title: "Overdue", icon: "exclamationmark.triangle.fill", color: .red) {
                             ForEach(data.overdueCards) { card in
-                                ReviewCardRow(card: card) {
+                                ReviewCardRow(card: card, labelColor: viewModel.board.label(for: card.labelId).swiftUIColor) {
                                     if let dueDate = card.dueDate {
                                         Text("Due \(dueDate, style: .relative) ago")
                                             .font(.system(size: 12))
@@ -76,7 +76,7 @@ struct WeeklyReviewView: View {
                     if !data.inProgressCards.isEmpty {
                         ReviewSection(title: "Still In Progress", icon: "arrow.right.circle.fill", color: .orange) {
                             ForEach(data.inProgressCards) { card in
-                                ReviewCardRow(card: card) {
+                                ReviewCardRow(card: card, labelColor: viewModel.board.label(for: card.labelId).swiftUIColor) {
                                     if let dueDate = card.dueDate {
                                         Text("Due \(dueDate, style: .date)")
                                             .font(.system(size: 12))
@@ -161,12 +161,13 @@ private struct ReviewSection<Content: View>: View {
 
 private struct ReviewCardRow<Detail: View>: View {
     let card: Card
+    let labelColor: Color
     @ViewBuilder let detail: () -> Detail
 
     var body: some View {
         HStack(spacing: 8) {
             Circle()
-                .fill(card.label.swiftUIColor)
+                .fill(labelColor)
                 .frame(width: 6, height: 6)
             Text(card.title)
                 .font(.caption)

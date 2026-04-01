@@ -35,6 +35,7 @@ struct Board: Codable, Identifiable, Equatable, Sendable {
     var name: String
     var columns: [Column]
     var cards: [Card]
+    var labels: [LabelDefinition]
     var createdAt: Date
     var updatedAt: Date
 
@@ -43,6 +44,7 @@ struct Board: Codable, Identifiable, Equatable, Sendable {
         name: String = "Propel",
         columns: [Column]? = nil,
         cards: [Card] = [],
+        labels: [LabelDefinition]? = nil,
         createdAt: Date = Date(),
         updatedAt: Date = Date()
     ) {
@@ -50,8 +52,29 @@ struct Board: Codable, Identifiable, Equatable, Sendable {
         self.name = name
         self.columns = columns ?? Self.defaultColumns()
         self.cards = cards
+        self.labels = labels ?? LabelDefinition.builtInLabels
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        columns = try container.decode([Column].self, forKey: .columns)
+        cards = try container.decode([Card].self, forKey: .cards)
+        labels = try container.decodeIfPresent([LabelDefinition].self, forKey: .labels) ?? LabelDefinition.builtInLabels
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+    }
+
+    /// Look up a label definition by ID, with a fallback for orphaned IDs.
+    func label(for id: UUID) -> LabelDefinition {
+        labels.first { $0.id == id } ?? LabelDefinition(id: id, name: "Unknown", colorName: "gray")
+    }
+
+    var sortedLabels: [LabelDefinition] {
+        labels.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
     static func defaultColumns() -> [Column] {

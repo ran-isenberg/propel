@@ -48,9 +48,9 @@ struct BoardTests {
         let inProgressId = board.columns[1].id
         var mutableBoard = board
         mutableBoard.cards = [
-            Card(title: "Card 1", columnId: backlogId, label: .blogPost),
-            Card(title: "Card 2", columnId: backlogId, label: .video),
-            Card(title: "Card 3", columnId: inProgressId, label: .podcast)
+            Card(title: "Card 1", columnId: backlogId, labelId: LabelDefinition.blogPostId),
+            Card(title: "Card 2", columnId: backlogId, labelId: LabelDefinition.videoId),
+            Card(title: "Card 3", columnId: inProgressId, labelId: LabelDefinition.podcastId)
         ]
         let backlogCards = mutableBoard.cardsForColumn(mutableBoard.columns[0])
         let inProgressCards = mutableBoard.cardsForColumn(mutableBoard.columns[1])
@@ -64,9 +64,9 @@ struct BoardTests {
         let colId = board.columns[0].id
         var mutableBoard = board
         mutableBoard.cards = [
-            Card(title: "Low", columnId: colId, label: .blogPost, priority: .low),
-            Card(title: "Urgent", columnId: colId, label: .blogPost, priority: .urgent),
-            Card(title: "Normal", columnId: colId, label: .blogPost, priority: .normal)
+            Card(title: "Low", columnId: colId, labelId: LabelDefinition.blogPostId, priority: .low),
+            Card(title: "Urgent", columnId: colId, labelId: LabelDefinition.blogPostId, priority: .urgent),
+            Card(title: "Normal", columnId: colId, labelId: LabelDefinition.blogPostId, priority: .normal)
         ]
         let sorted = mutableBoard.cardsForColumn(mutableBoard.columns[0])
         #expect(sorted[0].title == "Urgent")
@@ -82,9 +82,9 @@ struct BoardTests {
         let nextWeek = try #require(Calendar.current.date(byAdding: .day, value: 7, to: now))
         var mutableBoard = board
         mutableBoard.cards = [
-            Card(title: "Next week", columnId: colId, label: .blogPost, priority: .normal, dueDate: nextWeek),
-            Card(title: "Tomorrow", columnId: colId, label: .blogPost, priority: .normal, dueDate: tomorrow),
-            Card(title: "Today", columnId: colId, label: .blogPost, priority: .normal, dueDate: now)
+            Card(title: "Next week", columnId: colId, labelId: LabelDefinition.blogPostId, priority: .normal, dueDate: nextWeek),
+            Card(title: "Tomorrow", columnId: colId, labelId: LabelDefinition.blogPostId, priority: .normal, dueDate: tomorrow),
+            Card(title: "Today", columnId: colId, labelId: LabelDefinition.blogPostId, priority: .normal, dueDate: now)
         ]
         let sorted = mutableBoard.cardsForColumn(mutableBoard.columns[0])
         #expect(sorted[0].title == "Today")
@@ -98,8 +98,8 @@ struct BoardTests {
         let now = Date()
         var mutableBoard = board
         mutableBoard.cards = [
-            Card(title: "No date", columnId: colId, label: .blogPost, priority: .normal, dueDate: nil),
-            Card(title: "Has date", columnId: colId, label: .blogPost, priority: .normal, dueDate: now)
+            Card(title: "No date", columnId: colId, labelId: LabelDefinition.blogPostId, priority: .normal, dueDate: nil),
+            Card(title: "Has date", columnId: colId, labelId: LabelDefinition.blogPostId, priority: .normal, dueDate: now)
         ]
         let sorted = mutableBoard.cardsForColumn(mutableBoard.columns[0])
         #expect(sorted[0].title == "Has date")
@@ -118,10 +118,10 @@ struct BoardTests {
 struct CardTests {
     @Test func initializesWithDefaults() {
         let colId = UUID()
-        let card = Card(title: "Test", columnId: colId, label: .blogPost)
+        let card = Card(title: "Test", columnId: colId, labelId: LabelDefinition.blogPostId)
         #expect(card.title == "Test")
         #expect(card.columnId == colId)
-        #expect(card.label == .blogPost)
+        #expect(card.labelId == LabelDefinition.blogPostId)
         #expect(card.priority == .normal)
         #expect(card.dueDate == nil)
         #expect(card.checklist.isEmpty)
@@ -138,7 +138,7 @@ struct CardTests {
             title: "Weekly review",
             description: "Review all tasks",
             columnId: colId,
-            label: .conferenceTalk,
+            labelId: LabelDefinition.conferenceTalkId,
             priority: .urgent,
             dueDate: Date(),
             checklist: [
@@ -153,7 +153,7 @@ struct CardTests {
         #expect(newCard.title == "Weekly review")
         #expect(newCard.description == "Review all tasks")
         #expect(newCard.columnId == backlogId)
-        #expect(newCard.label == .conferenceTalk)
+        #expect(newCard.labelId == LabelDefinition.conferenceTalkId)
         #expect(newCard.priority == .urgent)
         #expect(newCard.isRecurring == true)
         #expect(newCard.recurrenceRule == card.recurrenceRule)
@@ -164,7 +164,7 @@ struct CardTests {
         let card = Card(
             title: "Task",
             columnId: colId,
-            label: .blogPost,
+            labelId: LabelDefinition.blogPostId,
             dueDate: Date(),
             checklist: [
                 ChecklistItem(title: "Done item", isCompleted: true, position: 0),
@@ -189,7 +189,7 @@ struct CardTests {
         let card = Card(
             title: "Monthly",
             columnId: colId,
-            label: .podcast,
+            labelId: LabelDefinition.podcastId,
             dueDate: dueDate,
             isRecurring: true,
             recurrenceRule: RecurrenceRule(interval: 1, frequency: .monthly)
@@ -200,7 +200,7 @@ struct CardTests {
     }
 
     @Test func createRecurringInstanceReturnsNilWhenNotRecurring() {
-        let card = Card(title: "One-off", columnId: UUID(), label: .blogPost, isRecurring: false)
+        let card = Card(title: "One-off", columnId: UUID(), labelId: LabelDefinition.blogPostId, isRecurring: false)
         #expect(card.createRecurringInstance(inColumn: UUID()) == nil)
     }
 
@@ -208,7 +208,7 @@ struct CardTests {
         let card = Card(
             title: "No date",
             columnId: UUID(),
-            label: .blogPost,
+            labelId: LabelDefinition.blogPostId,
             dueDate: nil,
             isRecurring: true,
             recurrenceRule: RecurrenceRule(interval: 1, frequency: .weekly)
@@ -220,7 +220,7 @@ struct CardTests {
         let card = Card(
             title: "No rule",
             columnId: UUID(),
-            label: .blogPost,
+            labelId: LabelDefinition.blogPostId,
             dueDate: Date(),
             isRecurring: true,
             recurrenceRule: nil
@@ -288,22 +288,27 @@ struct PriorityTests {
 // MARK: - Label Tests
 
 struct LabelTests {
-    @Test func exactlySixLabels() {
-        #expect(Label.allCases.count == 6)
+    @Test func exactlySixBuiltInLabels() {
+        #expect(LabelDefinition.builtInLabels.count == 6)
     }
 
-    @Test func rawValues() {
-        #expect(Label.blogPost.rawValue == "Blog Post")
-        #expect(Label.conferenceTalk.rawValue == "Conference Talk")
-        #expect(Label.video.rawValue == "Video")
-        #expect(Label.podcast.rawValue == "Podcast")
-        #expect(Label.code.rawValue == "Code")
+    @Test func builtInNames() {
+        #expect(LabelDefinition.builtInLabels[0].name == "Blog Post")
+        #expect(LabelDefinition.builtInLabels[1].name == "Conference Talk")
+        #expect(LabelDefinition.builtInLabels[2].name == "Video")
+        #expect(LabelDefinition.builtInLabels[3].name == "Podcast")
+        #expect(LabelDefinition.builtInLabels[4].name == "Code")
     }
 
     @Test func distinctColors() {
-        let colors = Label.allCases.map(\.color)
+        let colors = LabelDefinition.builtInLabels.map(\.colorName)
         let uniqueColors = Set(colors)
         #expect(uniqueColors.count == 6)
+    }
+
+    @Test func builtInLookup() {
+        #expect(LabelDefinition.builtIn(named: "Blog Post") != nil)
+        #expect(LabelDefinition.builtIn(named: "Nonexistent") == nil)
     }
 }
 
@@ -408,7 +413,7 @@ struct CodableTests {
         board.cards.append(Card(
             title: "Test card",
             columnId: board.columns[0].id,
-            label: .video,
+            labelId: LabelDefinition.videoId,
             priority: .urgent,
             dueDate: now,
             checklist: [ChecklistItem(title: "Sub-task", isCompleted: true, position: 0)],
@@ -439,7 +444,7 @@ struct CodableTests {
             title: "Full card",
             description: "Description with link https://example.com",
             columnId: UUID(),
-            label: .conferenceTalk,
+            labelId: LabelDefinition.conferenceTalkId,
             priority: .low,
             dueDate: now,
             checklist: [

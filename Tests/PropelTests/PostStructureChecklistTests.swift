@@ -14,7 +14,7 @@ struct PostStructureChecklistTests {
     @Test func blogPostChecklistIncludesPostStructureFirst() async {
         let vm = await Self.makeViewModel()
         let colId = vm.board.columns[0].id
-        vm.createCard(title: "Blog", label: .blogPost, priority: .normal, inColumn: colId)
+        vm.createCard(title: "Blog", labelId: LabelDefinition.blogPostId, priority: .normal, inColumn: colId)
         let titles = vm.board.cards[0].checklist.map(\.title)
         #expect(titles[0] == "Post Structure")
         #expect(titles[1] == "Medium")
@@ -26,20 +26,20 @@ struct PostStructureChecklistTests {
         let vm = await Self.makeViewModel()
         var board = Board()
         // Card without Post Structure (simulates old data)
-        var oldCard = Card(title: "Old Blog", columnId: board.columns[0].id, label: .blogPost)
+        var oldCard = Card(title: "Old Blog", columnId: board.columns[0].id, labelId: LabelDefinition.blogPostId)
         oldCard.checklist = [
             ChecklistItem(title: "PR", isCompleted: true, position: 0),
             ChecklistItem(title: "Merge", position: 1),
         ]
         // Card that already has Post Structure
-        var existingCard = Card(title: "Blog2", columnId: board.columns[0].id, label: .blogPost)
+        var existingCard = Card(title: "Blog2", columnId: board.columns[0].id, labelId: LabelDefinition.blogPostId)
         existingCard.checklist = [
             ChecklistItem(title: "Post Structure", isCompleted: true, position: 0),
             ChecklistItem(title: "PR", position: 1),
         ]
         board.cards.append(contentsOf: [oldCard, existingCard])
         await MainActor.run { vm.board = board }
-        await MainActor.run { vm.addDefaultChecklistToBlogCards() }
+        await MainActor.run { vm.addDefaultChecklistToCards() }
 
         // Old card: Post Structure inserted BEFORE PR, completion preserved
         let updated0 = vm.board.cards[0]
@@ -61,7 +61,7 @@ struct PostStructureChecklistTests {
         let vm = await Self.makeViewModel()
         var board = Board()
         // Card with all default items but Post Structure at the end (wrong order)
-        var card = Card(title: "Rust Blog", columnId: board.columns[0].id, label: .blogPost)
+        var card = Card(title: "Rust Blog", columnId: board.columns[0].id, labelId: LabelDefinition.blogPostId)
         card.checklist = [
             ChecklistItem(title: "PR", position: 0),
             ChecklistItem(title: "Merge", isCompleted: true, position: 1),
@@ -75,7 +75,7 @@ struct PostStructureChecklistTests {
         ]
         board.cards.append(card)
         await MainActor.run { vm.board = board }
-        await MainActor.run { vm.addDefaultChecklistToBlogCards() }
+        await MainActor.run { vm.addDefaultChecklistToCards() }
 
         let updated = vm.board.cards[0]
         let titles = updated.checklist.map(\.title)

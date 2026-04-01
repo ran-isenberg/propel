@@ -19,7 +19,7 @@ struct AttentionViewTests {
         vm.board.cards.append(Card(
             title: "Overdue",
             columnId: colId,
-            label: .blogPost,
+            labelId: LabelDefinition.blogPostId,
             dueDate: yesterday
         ))
         #expect(vm.attentionCards.count == 1)
@@ -33,7 +33,7 @@ struct AttentionViewTests {
         vm.board.cards.append(Card(
             title: "Due soon",
             columnId: colId,
-            label: .blogPost,
+            labelId: LabelDefinition.blogPostId,
             dueDate: tomorrow
         ))
         #expect(vm.attentionCards.count == 1)
@@ -45,7 +45,7 @@ struct AttentionViewTests {
         vm.board.cards.append(Card(
             title: "Blocked card",
             columnId: blockedId,
-            label: .blogPost
+            labelId: LabelDefinition.blogPostId
         ))
         #expect(vm.attentionCards.count == 1)
     }
@@ -57,7 +57,7 @@ struct AttentionViewTests {
         vm.board.cards.append(Card(
             title: "Done overdue",
             columnId: completedId,
-            label: .blogPost,
+            labelId: LabelDefinition.blogPostId,
             dueDate: yesterday,
             completedAt: Date()
         ))
@@ -71,7 +71,7 @@ struct AttentionViewTests {
         vm.board.cards.append(Card(
             title: "Far future",
             columnId: colId,
-            label: .blogPost,
+            labelId: LabelDefinition.blogPostId,
             dueDate: nextMonth
         ))
         #expect(vm.attentionCards.isEmpty)
@@ -81,16 +81,16 @@ struct AttentionViewTests {
         let vm = makeViewModel()
         let colId = vm.board.columns[0].id
         let yesterday = try #require(Calendar.current.date(byAdding: .day, value: -1, to: Date()))
-        vm.board.cards.append(Card(title: "OD1", columnId: colId, label: .blogPost, dueDate: yesterday))
-        vm.board.cards.append(Card(title: "OD2", columnId: colId, label: .video, dueDate: yesterday))
+        vm.board.cards.append(Card(title: "OD1", columnId: colId, labelId: LabelDefinition.blogPostId, dueDate: yesterday))
+        vm.board.cards.append(Card(title: "OD2", columnId: colId, labelId: LabelDefinition.videoId, dueDate: yesterday))
         #expect(vm.overdueCount == 2)
     }
 
     @Test func blockedCountProperty() {
         let vm = makeViewModel()
         let blockedId = vm.board.columns[2].id
-        vm.board.cards.append(Card(title: "B1", columnId: blockedId, label: .blogPost))
-        vm.board.cards.append(Card(title: "B2", columnId: blockedId, label: .video))
+        vm.board.cards.append(Card(title: "B1", columnId: blockedId, labelId: LabelDefinition.blogPostId))
+        vm.board.cards.append(Card(title: "B2", columnId: blockedId, labelId: LabelDefinition.videoId))
         #expect(vm.blockedCount == 2)
     }
 }
@@ -111,13 +111,13 @@ struct WeeklyReviewTests {
         vm.board.cards.append(Card(
             title: "Done today",
             columnId: completedId,
-            label: .blogPost,
+            labelId: LabelDefinition.blogPostId,
             completedAt: Date()
         ))
         vm.board.cards.append(Card(
             title: "Done long ago",
             columnId: completedId,
-            label: .video,
+            labelId: LabelDefinition.videoId,
             completedAt: Calendar.current.date(byAdding: .day, value: -30, to: Date())
         ))
         let data = vm.weeklyReviewData
@@ -128,7 +128,7 @@ struct WeeklyReviewTests {
     @Test func reviewDataCountsCreatedThisWeek() {
         let vm = makeViewModel()
         let colId = vm.board.columns[0].id
-        vm.createCard(title: "New card", label: .blogPost, priority: .normal, inColumn: colId)
+        vm.createCard(title: "New card", labelId: LabelDefinition.blogPostId, priority: .normal, inColumn: colId)
         let data = vm.weeklyReviewData
         #expect(data.createdCards.count == 1)
     }
@@ -136,7 +136,7 @@ struct WeeklyReviewTests {
     @Test func reviewDataCountsInProgress() {
         let vm = makeViewModel()
         let inProgressId = vm.board.columns[1].id
-        vm.board.cards.append(Card(title: "WIP", columnId: inProgressId, label: .blogPost))
+        vm.board.cards.append(Card(title: "WIP", columnId: inProgressId, labelId: LabelDefinition.blogPostId))
         let data = vm.weeklyReviewData
         #expect(data.inProgressCards.count == 1)
     }
@@ -145,7 +145,7 @@ struct WeeklyReviewTests {
         let vm = makeViewModel()
         let colId = vm.board.columns[0].id
         let yesterday = try #require(Calendar.current.date(byAdding: .day, value: -1, to: Date()))
-        vm.board.cards.append(Card(title: "Late", columnId: colId, label: .blogPost, dueDate: yesterday))
+        vm.board.cards.append(Card(title: "Late", columnId: colId, labelId: LabelDefinition.blogPostId, dueDate: yesterday))
         let data = vm.weeklyReviewData
         #expect(data.overdueCards.count == 1)
     }
@@ -153,8 +153,8 @@ struct WeeklyReviewTests {
     @Test func reviewDataTotalCards() {
         let vm = makeViewModel()
         let colId = vm.board.columns[0].id
-        vm.createCard(title: "A", label: .blogPost, priority: .normal, inColumn: colId)
-        vm.createCard(title: "B", label: .video, priority: .normal, inColumn: colId)
+        vm.createCard(title: "A", labelId: LabelDefinition.blogPostId, priority: .normal, inColumn: colId)
+        vm.createCard(title: "B", labelId: LabelDefinition.videoId, priority: .normal, inColumn: colId)
         let data = vm.weeklyReviewData
         #expect(data.totalCards == 2)
     }
@@ -174,14 +174,14 @@ struct MenuBarBadgeTests {
         let vm = makeViewModel()
         let colId = vm.board.columns[0].id
         let yesterday = try #require(Calendar.current.date(byAdding: .day, value: -1, to: Date()))
-        vm.board.cards.append(Card(title: "OD", columnId: colId, label: .blogPost, dueDate: yesterday))
+        vm.board.cards.append(Card(title: "OD", columnId: colId, labelId: LabelDefinition.blogPostId, dueDate: yesterday))
         #expect(vm.menuBarBadgeCount == 1)
     }
 
     @Test func zeroBadgeWhenAllClear() {
         let vm = makeViewModel()
         let colId = vm.board.columns[0].id
-        vm.createCard(title: "Normal", label: .blogPost, priority: .normal, inColumn: colId)
+        vm.createCard(title: "Normal", labelId: LabelDefinition.blogPostId, priority: .normal, inColumn: colId)
         #expect(vm.menuBarBadgeCount == 0)
     }
 }
@@ -199,7 +199,7 @@ struct EmojiSupportTests {
     @Test func cardTitleSupportsEmoji() {
         let vm = makeViewModel()
         let colId = vm.board.columns[0].id
-        vm.createCard(title: "🚀 Launch Day", label: .blogPost, priority: .urgent, inColumn: colId)
+        vm.createCard(title: "🚀 Launch Day", labelId: LabelDefinition.blogPostId, priority: .urgent, inColumn: colId)
         let card = vm.board.cards.first
         #expect(card?.title == "🚀 Launch Day")
     }
@@ -209,7 +209,7 @@ struct EmojiSupportTests {
         let colId = vm.board.columns[0].id
         vm.createCard(
             title: "Test",
-            label: .blogPost,
+            labelId: LabelDefinition.blogPostId,
             priority: .normal,
             description: "Need to review 📝 and ship 🎉",
             inColumn: colId
@@ -221,7 +221,7 @@ struct EmojiSupportTests {
     @Test func emojiOnlyTitle() {
         let vm = makeViewModel()
         let colId = vm.board.columns[0].id
-        vm.createCard(title: "🎯🔥💡", label: .video, priority: .normal, inColumn: colId)
+        vm.createCard(title: "🎯🔥💡", labelId: LabelDefinition.videoId, priority: .normal, inColumn: colId)
         let card = vm.board.cards.first
         #expect(card?.title == "🎯🔥💡")
         #expect(card?.title.count == 3)
@@ -230,8 +230,8 @@ struct EmojiSupportTests {
     @Test func searchFindsEmojiInTitle() {
         let vm = makeViewModel()
         let colId = vm.board.columns[0].id
-        vm.createCard(title: "🚀 Launch", label: .blogPost, priority: .normal, inColumn: colId)
-        vm.createCard(title: "Review PR", label: .blogPost, priority: .normal, inColumn: colId)
+        vm.createCard(title: "🚀 Launch", labelId: LabelDefinition.blogPostId, priority: .normal, inColumn: colId)
+        vm.createCard(title: "Review PR", labelId: LabelDefinition.blogPostId, priority: .normal, inColumn: colId)
         vm.isSearching = true
         vm.searchText = "🚀"
         let results = vm.cardsForColumn(vm.board.columns[0])
@@ -244,12 +244,12 @@ struct EmojiSupportTests {
         let colId = vm.board.columns[0].id
         vm.createCard(
             title: "Task",
-            label: .blogPost,
+            labelId: LabelDefinition.blogPostId,
             priority: .normal,
             description: "Important 🔥 task",
             inColumn: colId
         )
-        vm.createCard(title: "Other", label: .blogPost, priority: .normal, inColumn: colId)
+        vm.createCard(title: "Other", labelId: LabelDefinition.blogPostId, priority: .normal, inColumn: colId)
         vm.isSearching = true
         vm.searchText = "🔥"
         let results = vm.cardsForColumn(vm.board.columns[0])
@@ -262,7 +262,7 @@ struct EmojiSupportTests {
             title: "📋 Sprint Review",
             description: "Check all items ✅ and fix bugs 🐛",
             columnId: UUID(),
-            label: .conferenceTalk,
+            labelId: LabelDefinition.conferenceTalkId,
             priority: .urgent,
             checklist: [
                 ChecklistItem(title: "🎨 Design review", isCompleted: true, position: 0),
@@ -323,7 +323,7 @@ struct EmojiSupportTests {
             title: "👨‍👩‍👧‍👦 Family feature 🏳️‍🌈",
             description: "Support for 🇺🇸 flag emojis and 👍🏽 skin tones",
             columnId: UUID(),
-            label: .blogPost
+            labelId: LabelDefinition.blogPostId
         )
 
         let encoder = JSONEncoder()

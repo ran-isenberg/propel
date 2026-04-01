@@ -28,13 +28,13 @@ struct CardContextMenuModifier: ViewModifier {
 
                 // Change Label
                 Menu("Change Label") {
-                    ForEach(Label.sortedAllCases) { label in
+                    ForEach(viewModel.board.sortedLabels) { labelDef in
                         Button {
-                            viewModel.changeCardLabel(card.id, to: label)
+                            viewModel.changeCardLabel(card.id, to: labelDef.id)
                         } label: {
                             HStack {
-                                Text(label.rawValue)
-                                if card.label == label {
+                                Text(labelDef.name)
+                                if card.labelId == labelDef.id {
                                     Image(systemName: "checkmark")
                                 }
                             }

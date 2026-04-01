@@ -19,7 +19,7 @@ struct Card: Codable, Identifiable, Equatable, Sendable {
     var title: String
     var description: String
     var columnId: UUID
-    var label: Label
+    var labelId: UUID
     var priority: Priority
     var dueDate: Date?
     var checklist: [ChecklistItem]
@@ -35,7 +35,7 @@ struct Card: Codable, Identifiable, Equatable, Sendable {
         title: String,
         description: String = "",
         columnId: UUID,
-        label: Label,
+        labelId: UUID,
         priority: Priority = .normal,
         dueDate: Date? = nil,
         checklist: [ChecklistItem] = [],
@@ -50,7 +50,7 @@ struct Card: Codable, Identifiable, Equatable, Sendable {
         self.title = title
         self.description = description
         self.columnId = columnId
-        self.label = label
+        self.labelId = labelId
         self.priority = priority
         self.dueDate = dueDate
         self.checklist = checklist
@@ -62,13 +62,25 @@ struct Card: Codable, Identifiable, Equatable, Sendable {
         self.completedAt = completedAt
     }
 
+    private enum CodingKeys: String, CodingKey {
+        case id, title, description, columnId, labelId, label, priority, dueDate,
+             checklist, isRecurring, recurrenceRule, reminder, createdAt, updatedAt, completedAt
+    }
+
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(UUID.self, forKey: .id)
         title = try container.decode(String.self, forKey: .title)
         description = try container.decode(String.self, forKey: .description)
         columnId = try container.decode(UUID.self, forKey: .columnId)
-        label = try container.decode(Label.self, forKey: .label)
+        // Migration: try new UUID-based labelId first, fall back to old string-based label
+        if let uuid = try? container.decode(UUID.self, forKey: .labelId) {
+            labelId = uuid
+        } else if let legacyName = try? container.decode(String.self, forKey: .label) {
+            labelId = LabelDefinition.builtIn(named: legacyName)?.id ?? LabelDefinition.builtInLabels[0].id
+        } else {
+            labelId = LabelDefinition.builtInLabels[0].id
+        }
         priority = try container.decode(Priority.self, forKey: .priority)
         dueDate = try container.decodeIfPresent(Date.self, forKey: .dueDate)
         checklist = try container.decode([ChecklistItem].self, forKey: .checklist)
@@ -78,6 +90,24 @@ struct Card: Codable, Identifiable, Equatable, Sendable {
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         updatedAt = try container.decode(Date.self, forKey: .updatedAt)
         completedAt = try container.decodeIfPresent(Date.self, forKey: .completedAt)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(title, forKey: .title)
+        try container.encode(description, forKey: .description)
+        try container.encode(columnId, forKey: .columnId)
+        try container.encode(labelId, forKey: .labelId)
+        try container.encode(priority, forKey: .priority)
+        try container.encodeIfPresent(dueDate, forKey: .dueDate)
+        try container.encode(checklist, forKey: .checklist)
+        try container.encode(isRecurring, forKey: .isRecurring)
+        try container.encodeIfPresent(recurrenceRule, forKey: .recurrenceRule)
+        try container.encode(reminder, forKey: .reminder)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encode(updatedAt, forKey: .updatedAt)
+        try container.encodeIfPresent(completedAt, forKey: .completedAt)
     }
 
     /// Create a new recurring instance from this card with reset checklist and new due date.
@@ -93,7 +123,7 @@ struct Card: Codable, Identifiable, Equatable, Sendable {
             title: title,
             description: description,
             columnId: columnId,
-            label: label,
+            labelId: labelId,
             priority: priority,
             dueDate: newDueDate,
             checklist: resetChecklist,

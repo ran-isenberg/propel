@@ -1,41 +1,86 @@
 import Foundation
 import SwiftUI
 
-enum Label: String, Codable, CaseIterable, Identifiable, Sendable {
-    case blogPost = "Blog Post"
-    case conferenceTalk = "Conference Talk"
-    case video = "Video"
-    case podcast = "Podcast"
-    case code = "Code"
-    case article = "Article"
+// MARK: - Label Definition
 
-    var id: String { rawValue }
+struct LabelDefinition: Codable, Identifiable, Equatable, Sendable {
+    var id: UUID
+    var name: String
+    var colorName: String
+    var defaultChecklist: [String]
 
-    static var sortedAllCases: [Self] {
-        allCases.sorted { $0.rawValue.localizedCaseInsensitiveCompare($1.rawValue) == .orderedAscending }
-    }
-
-    var color: String {
-        switch self {
-        case .blogPost: "blue"
-        case .conferenceTalk: "purple"
-        case .video: "red"
-        case .podcast: "green"
-        case .code: "cyan"
-        case .article: "orange"
-        }
+    init(id: UUID = UUID(), name: String, colorName: String, defaultChecklist: [String] = []) {
+        self.id = id
+        self.name = name
+        self.colorName = colorName
+        self.defaultChecklist = defaultChecklist
     }
 
     var swiftUIColor: Color {
-        switch self {
-        case .blogPost: .blue
-        case .conferenceTalk: .purple
-        case .video: .red
-        case .podcast: .green
-        case .code: .cyan
-        case .article: .orange
-        }
+        LabelColor.palette.first { $0.name == colorName }?.color ?? .gray
     }
+
+    // swiftlint:disable force_unwrapping
+    private static let blogPostUUID = UUID(uuidString: "A0000001-0000-0000-0000-000000000001")!
+    private static let conferenceTalkUUID = UUID(uuidString: "A0000001-0000-0000-0000-000000000002")!
+    private static let videoUUID = UUID(uuidString: "A0000001-0000-0000-0000-000000000003")!
+    private static let podcastUUID = UUID(uuidString: "A0000001-0000-0000-0000-000000000004")!
+    private static let codeUUID = UUID(uuidString: "A0000001-0000-0000-0000-000000000005")!
+    private static let articleUUID = UUID(uuidString: "A0000001-0000-0000-0000-000000000006")!
+    // swiftlint:enable force_unwrapping
+
+    static let builtInLabels: [Self] = [
+        Self(
+            id: blogPostUUID,
+            name: "Blog Post",
+            colorName: "blue",
+            defaultChecklist: [
+                "Post Structure", "Medium", "LinkedIn Newsletter",
+                "PR", "Merge", "GA", "LinkedIn", "X", "Heroes",
+            ]
+        ),
+        Self(id: conferenceTalkUUID, name: "Conference Talk", colorName: "purple"),
+        Self(id: videoUUID, name: "Video", colorName: "red"),
+        Self(id: podcastUUID, name: "Podcast", colorName: "green"),
+        Self(id: codeUUID, name: "Code", colorName: "cyan"),
+        Self(id: articleUUID, name: "Article", colorName: "orange"),
+    ]
+
+    /// Look up a built-in label by its legacy name (used for migration from the old Label enum).
+    static func builtIn(named name: String) -> Self? {
+        builtInLabels.first { $0.name == name }
+    }
+
+    // Convenience accessors for the built-in label IDs
+    static var blogPostId: UUID { blogPostUUID }
+    static var conferenceTalkId: UUID { conferenceTalkUUID }
+    static var videoId: UUID { videoUUID }
+    static var podcastId: UUID { podcastUUID }
+    static var codeId: UUID { codeUUID }
+    static var articleId: UUID { articleUUID }
+}
+
+// MARK: - Label Color Palette
+
+struct LabelColor: Identifiable, Sendable {
+    let name: String
+    let color: Color
+    var id: String { name }
+
+    static let palette: [Self] = [
+        Self(name: "blue", color: .blue),
+        Self(name: "purple", color: .purple),
+        Self(name: "red", color: .red),
+        Self(name: "green", color: .green),
+        Self(name: "cyan", color: .cyan),
+        Self(name: "orange", color: .orange),
+        Self(name: "yellow", color: .yellow),
+        Self(name: "pink", color: .pink),
+        Self(name: "brown", color: .brown),
+        Self(name: "indigo", color: .indigo),
+        Self(name: "mint", color: .mint),
+        Self(name: "teal", color: .teal),
+    ]
 }
 
 enum Priority: String, Codable, CaseIterable, Comparable, Identifiable, Sendable {

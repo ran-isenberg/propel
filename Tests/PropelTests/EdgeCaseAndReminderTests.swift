@@ -26,7 +26,7 @@ struct EdgeCaseTests {
         await MainActor.run {
             vm.createCard(
                 title: "My Blog",
-                label: .blogPost,
+                labelId: LabelDefinition.blogPostId,
                 priority: .normal,
                 inColumn: backlogId
             )
@@ -57,7 +57,7 @@ struct EdgeCaseTests {
         await MainActor.run {
             vm.createCard(
                 title: "My Talk",
-                label: .conferenceTalk,
+                labelId: LabelDefinition.conferenceTalkId,
                 priority: .normal,
                 inColumn: backlogId
             )
@@ -78,7 +78,7 @@ struct EdgeCaseTests {
         await MainActor.run {
             vm.createCard(
                 title: "Blog",
-                label: .blogPost,
+                labelId: LabelDefinition.blogPostId,
                 priority: .normal,
                 inColumn: backlogId
             )
@@ -88,7 +88,7 @@ struct EdgeCaseTests {
 
         // Running again should not modify
         try? await Task.sleep(for: .milliseconds(10))
-        await MainActor.run { vm.addDefaultChecklistToBlogCards() }
+        await MainActor.run { vm.addDefaultChecklistToCards() }
 
         let afterDate = await vm.board.cards[0].updatedAt
         #expect(beforeDate == afterDate)
@@ -101,7 +101,7 @@ struct EdgeCaseTests {
         var card = Card(
             title: "Partial Blog",
             columnId: backlogId,
-            label: .blogPost
+            labelId: LabelDefinition.blogPostId
         )
         card.checklist = [
             ChecklistItem(title: "PR", isCompleted: true, position: 0),
@@ -110,7 +110,7 @@ struct EdgeCaseTests {
         board.cards.append(card)
         await MainActor.run { vm.board = board }
 
-        await MainActor.run { vm.addDefaultChecklistToBlogCards() }
+        await MainActor.run { vm.addDefaultChecklistToCards() }
 
         let updated = await vm.board.cards[0]
         let titles = updated.checklist.map(\.title)
@@ -211,7 +211,7 @@ struct EdgeCaseTests {
         let blockedId = board.columns[2].id
 
         // Backlog → Blocked
-        await MainActor.run { vm.createCard(title: "Test", label: .blogPost, priority: .normal, inColumn: backlogId) }
+        await MainActor.run { vm.createCard(title: "Test", labelId: LabelDefinition.blogPostId, priority: .normal, inColumn: backlogId) }
         let cardId = await vm.board.cards[0].id
         await MainActor.run { vm.toggleCardBlocked(cardId) }
         #expect(await vm.board.cards.first { $0.id == cardId }?.columnId == blockedId)
@@ -227,7 +227,7 @@ struct EdgeCaseTests {
         let vm = await Self.makeViewModel()
         var board = Board()
         let completedId = board.columns[3].id
-        var card = Card(title: "Old Done", columnId: completedId, label: .blogPost)
+        var card = Card(title: "Old Done", columnId: completedId, labelId: LabelDefinition.blogPostId)
         card.completedAt = Calendar.current.date(byAdding: .day, value: -30, to: Date())
         board.cards.append(card)
         await MainActor.run {
@@ -297,13 +297,13 @@ struct ReminderOffsetTests {
 
 struct ReminderCardTests {
     @Test func cardDefaultsAndStoresReminder() {
-        let defaultCard = Card(title: "Test", columnId: UUID(), label: .blogPost, priority: .normal)
+        let defaultCard = Card(title: "Test", columnId: UUID(), labelId: LabelDefinition.blogPostId, priority: .normal)
         #expect(defaultCard.reminder == .none)
 
         let card = Card(
             title: "Test",
             columnId: UUID(),
-            label: .blogPost,
+            labelId: LabelDefinition.blogPostId,
             priority: .normal,
             dueDate: Date(),
             reminder: .fifteenMinutes
@@ -312,7 +312,7 @@ struct ReminderCardTests {
     }
 
     @Test func cardDecoderDefaultsReminderToNone() throws {
-        let card = Card(title: "Old Card", columnId: UUID(), label: .blogPost, priority: .normal)
+        let card = Card(title: "Old Card", columnId: UUID(), labelId: LabelDefinition.blogPostId, priority: .normal)
         let data = try JSONEncoder().encode(card)
         guard var json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             #expect(Bool(false), "Failed to parse JSON")
@@ -328,7 +328,7 @@ struct ReminderCardTests {
         let card = Card(
             title: "Recurring",
             columnId: UUID(),
-            label: .blogPost,
+            labelId: LabelDefinition.blogPostId,
             priority: .normal,
             dueDate: Date(),
             isRecurring: true,
@@ -341,7 +341,7 @@ struct ReminderCardTests {
         let cardNoReminder = Card(
             title: "Recurring",
             columnId: UUID(),
-            label: .blogPost,
+            labelId: LabelDefinition.blogPostId,
             priority: .normal,
             dueDate: Date(),
             isRecurring: true,

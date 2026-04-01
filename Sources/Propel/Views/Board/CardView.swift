@@ -53,7 +53,7 @@ struct CardView: View {
 
             // Labels row
             CardPropertyRow(icon: "tag") {
-                LabelBadge(label: card.label)
+                LabelBadge(labelDef: viewModel.board.label(for: card.labelId))
             }
 
             // Recurring indicator
@@ -109,21 +109,21 @@ struct CardPropertyRow<Content: View>: View {
 // MARK: - Label Badge
 
 struct LabelBadge: View {
-    let label: Label
+    let labelDef: LabelDefinition
 
     var body: some View {
-        Text(label.rawValue)
+        Text(labelDef.name)
             .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(label.swiftUIColor)
+            .foregroundStyle(labelDef.swiftUIColor)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
             .background(
                 RoundedRectangle(cornerRadius: 4)
-                    .fill(label.swiftUIColor.opacity(0.15))
+                    .fill(labelDef.swiftUIColor.opacity(0.15))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 4)
-                    .stroke(label.swiftUIColor.opacity(0.3), lineWidth: 0.5)
+                    .stroke(labelDef.swiftUIColor.opacity(0.3), lineWidth: 0.5)
             )
     }
 }

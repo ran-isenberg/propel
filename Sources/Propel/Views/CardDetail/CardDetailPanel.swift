@@ -14,6 +14,7 @@ struct CardDetailPanel: View {
             if let card {
                 CardDetailContent(
                     card: card,
+                    board: viewModel.board,
                     onUpdate: { viewModel.updateCard($0) },
                     onDelete: { showDeleteConfirmation = true },
                     columns: viewModel.sortedColumns,
@@ -37,6 +38,7 @@ struct CardDetailPanel: View {
 
 private struct CardDetailContent: View {
     var card: Card
+    let board: Board
     let onUpdate: (Card) -> Void
     let onDelete: () -> Void
     let columns: [Column]
@@ -44,7 +46,7 @@ private struct CardDetailContent: View {
 
     @State private var title: String
     @State private var description: String
-    @State private var label: Label
+    @State private var labelId: UUID
     @State private var priority: Priority
     @State private var dueDate: Date
     @State private var hasDueDate: Bool
@@ -58,19 +60,21 @@ private struct CardDetailContent: View {
 
     init(
         card: Card,
+        board: Board,
         onUpdate: @escaping (Card) -> Void,
         onDelete: @escaping () -> Void,
         columns: [Column],
         onMoveToColumn: @escaping (UUID) -> Void
     ) {
         self.card = card
+        self.board = board
         self.onUpdate = onUpdate
         self.onDelete = onDelete
         self.columns = columns
         self.onMoveToColumn = onMoveToColumn
         _title = State(initialValue: card.title)
         _description = State(initialValue: card.description)
-        _label = State(initialValue: card.label)
+        _labelId = State(initialValue: card.labelId)
         _priority = State(initialValue: card.priority)
         _dueDate = State(initialValue: card.dueDate ?? Date())
         _hasDueDate = State(initialValue: card.dueDate != nil)
@@ -106,20 +110,20 @@ private struct CardDetailContent: View {
                     Text("Label")
                         .foregroundStyle(.secondary)
                     Spacer()
-                    Picker("Label", selection: $label) {
-                        ForEach(Label.sortedAllCases) { l in
+                    Picker("Label", selection: $labelId) {
+                        ForEach(board.sortedLabels) { labelDef in
                             SwiftUI.Label {
-                                Text(l.rawValue)
+                                Text(labelDef.name)
                             } icon: {
                                 Circle()
-                                    .fill(l.swiftUIColor)
+                                    .fill(labelDef.swiftUIColor)
                                     .frame(width: 8, height: 8)
                             }
-                            .tag(l)
+                            .tag(labelDef.id)
                         }
                     }
                     .labelsHidden()
-                    .onChange(of: label) { saveChanges() }
+                    .onChange(of: labelId) { saveChanges() }
                 }
 
                 // Priority
@@ -288,7 +292,7 @@ private struct CardDetailContent: View {
         var updated = card
         updated.title = title
         updated.description = description
-        updated.label = label
+        updated.labelId = labelId
         updated.priority = priority
         updated.dueDate = hasDueDate ? dueDate : nil
         updated.checklist = checklist

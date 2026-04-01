@@ -3,6 +3,7 @@ import SwiftUI
 struct FilterBar: View {
     @Environment(BoardViewModel.self) private var viewModel
     @State private var showWeeklyReview = false
+    @State private var showLabelManagement = false
 
     var body: some View {
         @Bindable var vm = viewModel
@@ -13,16 +14,16 @@ struct FilterBar: View {
 
             // Label filter
             Picker("Label", selection: $vm.filterLabel) {
-                Text("All Labels").tag(Label?.none)
+                Text("All Labels").tag(UUID?.none)
                 Divider()
-                ForEach(Label.sortedAllCases) { label in
+                ForEach(viewModel.board.sortedLabels) { labelDef in
                     HStack {
                         Circle()
-                            .fill(label.swiftUIColor)
+                            .fill(labelDef.swiftUIColor)
                             .frame(width: 8, height: 8)
-                        Text(label.rawValue)
+                        Text(labelDef.name)
                     }
-                    .tag(Label?.some(label))
+                    .tag(UUID?.some(labelDef.id))
                 }
             }
             .frame(width: 150)
@@ -49,16 +50,33 @@ struct FilterBar: View {
 
             Spacer()
 
+            // Manage Labels button
+            Button {
+                showLabelManagement = true
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "tag.circle")
+                    Text("Manage Labels")
+                }
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .help("Manage Labels")
+            .sheet(isPresented: $showLabelManagement) {
+                LabelManagementView()
+                    .environment(viewModel)
+            }
+
             // Weekly Review button
             Button {
                 showWeeklyReview = true
             } label: {
-                HStack(spacing: 3) {
+                HStack(spacing: 4) {
                     Image(systemName: "calendar.badge.clock")
-                        .font(.caption)
                     Text("Review")
-                        .font(.caption)
                 }
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)

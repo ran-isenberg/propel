@@ -12,7 +12,7 @@ final class BoardViewModel {
 
     // MARK: - Filters
 
-    var filterLabel: Label?
+    var filterLabel: UUID?
     var filterPriority: Priority?
     var isFilterActive: Bool {
         filterLabel != nil || filterPriority != nil
@@ -63,7 +63,7 @@ final class BoardViewModel {
     func loadBoard() async {
         do {
             board = try await StorageService.shared.loadBoard()
-            addDefaultChecklistToBlogCards()
+            addDefaultChecklistToCards()
         } catch {
             errorMessage = "Failed to load board: \(error.localizedDescription)"
             board = Board()
@@ -99,8 +99,8 @@ final class BoardViewModel {
 
     func cardsForColumn(_ column: Column) -> [Card] {
         var cards = board.cardsForColumn(column)
-        if let label = filterLabel {
-            cards = cards.filter { $0.label == label }
+        if let labelId = filterLabel {
+            cards = cards.filter { $0.labelId == labelId }
         }
         if let priority = filterPriority {
             cards = cards.filter { $0.priority == priority }
@@ -376,21 +376,9 @@ final class BoardViewModel {
 
     // MARK: - Card CRUD
 
-    private static let blogPostDefaultChecklist: [ChecklistItem] = [
-        ChecklistItem(title: "Post Structure", position: 0),
-        ChecklistItem(title: "Medium", position: 1),
-        ChecklistItem(title: "LinkedIn Newsletter", position: 2),
-        ChecklistItem(title: "PR", position: 3),
-        ChecklistItem(title: "Merge", position: 4),
-        ChecklistItem(title: "GA", position: 5),
-        ChecklistItem(title: "LinkedIn", position: 6),
-        ChecklistItem(title: "X", position: 7),
-        ChecklistItem(title: "Heroes", position: 8),
-    ]
-
     func createCard(
         title: String,
-        label: Label,
+        labelId: UUID,
         priority: Priority,
         description: String = "",
         dueDate: Date? = nil,
@@ -399,12 +387,15 @@ final class BoardViewModel {
         reminder: ReminderOffset = .none,
         inColumn columnId: UUID
     ) {
-        let checklist = label == .blogPost ? Self.blogPostDefaultChecklist : []
+        let labelDef = board.label(for: labelId)
+        let checklist: [ChecklistItem] = labelDef.defaultChecklist.enumerated().map { i, title in
+            ChecklistItem(title: title, position: i)
+        }
         let card = Card(
             title: title,
             description: description,
             columnId: columnId,
-            label: label,
+            labelId: labelId,
             priority: priority,
             dueDate: dueDate,
             checklist: checklist,
@@ -420,24 +411,30 @@ final class BoardViewModel {
         scheduleSave()
     }
 
-    func addDefaultChecklistToBlogCards() {
+    func addDefaultChecklistToCards() {
         var didModify = false
-        for index in board.cards.indices where board.cards[index].label == .blogPost {
+        for index in board.cards.indices {
+            let labelDef = board.label(for: board.cards[index].labelId)
+            guard !labelDef.defaultChecklist.isEmpty else { continue }
+
+            let defaultChecklistItems = labelDef.defaultChecklist.enumerated().map { i, title in
+                ChecklistItem(title: title, position: i)
+            }
             let existing = Set(board.cards[index].checklist.map(\.title))
-            let missing = Self.blogPostDefaultChecklist.filter { !existing.contains($0.title) }
+            let missing = defaultChecklistItems.filter { !existing.contains($0.title) }
 
             // Check if default items are in correct relative order
             let currentTitles = board.cards[index].checklist.map(\.title)
-            let defaultTitles = Set(Self.blogPostDefaultChecklist.map(\.title))
+            let defaultTitles = Set(defaultChecklistItems.map(\.title))
             let currentDefaultOrder = currentTitles.filter { defaultTitles.contains($0) }
-            let expectedOrder = Self.blogPostDefaultChecklist.map(\.title).filter { existing.contains($0) }
+            let expectedOrder = defaultChecklistItems.map(\.title).filter { existing.contains($0) }
             let needsReorder = currentDefaultOrder != expectedOrder
 
             if !missing.isEmpty || needsReorder {
                 // Build ordered list: default items first (in order), then any custom items
                 let customItems = board.cards[index].checklist.filter { !defaultTitles.contains($0.title) }
                 var merged: [ChecklistItem] = []
-                for defaultItem in Self.blogPostDefaultChecklist {
+                for defaultItem in defaultChecklistItems {
                     if let existingItem = board.cards[index].checklist.first(where: { $0.title == defaultItem.title }) {
                         merged.append(ChecklistItem(
                             id: existingItem.id,
@@ -555,9 +552,9 @@ final class BoardViewModel {
         scheduleSave()
     }
 
-    func changeCardLabel(_ cardId: UUID, to label: Label) {
+    func changeCardLabel(_ cardId: UUID, to labelId: UUID) {
         guard let index = board.cards.firstIndex(where: { $0.id == cardId }) else { return }
-        board.cards[index].label = label
+        board.cards[index].labelId = labelId
         board.cards[index].updatedAt = Date()
         scheduleSave()
     }
@@ -623,7 +620,7 @@ final class BoardViewModel {
             do {
                 // Reload board and notes from the new location
                 board = try await StorageService.shared.loadBoard()
-                addDefaultChecklistToBlogCards()
+                addDefaultChecklistToCards()
             } catch {
                 // Loading failed — revert storage to prevent auto-save overwriting user files
                 try? await StorageService.shared.changeStorageFolder(to: previousFolder)
@@ -647,4 +644,35 @@ struct WeeklyReviewData {
     let inProgressCards: [Card]
     let overdueCards: [Card]
     let totalCards: Int
+}
+
+// MARK: - Label Management
+
+extension BoardViewModel {
+    func addLabel(name: String, colorName: String) {
+        let label = LabelDefinition(name: name, colorName: colorName)
+        board.labels.append(label)
+        scheduleSave()
+    }
+
+    func updateLabel(_ labelId: UUID, name: String, colorName: String) {
+        guard let index = board.labels.firstIndex(where: { $0.id == labelId }) else { return }
+        board.labels[index].name = name
+        board.labels[index].colorName = colorName
+        scheduleSave()
+    }
+
+    func cardsUsingLabel(_ labelId: UUID) -> Int {
+        board.cards.count(where: { $0.labelId == labelId })
+    }
+
+    func canDeleteLabel(_ labelId: UUID) -> Bool {
+        cardsUsingLabel(labelId) == 0 && board.labels.count > 1
+    }
+
+    func deleteLabel(_ labelId: UUID) {
+        guard canDeleteLabel(labelId) else { return }
+        board.labels.removeAll { $0.id == labelId }
+        scheduleSave()
+    }
 }

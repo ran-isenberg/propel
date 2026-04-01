@@ -6,7 +6,7 @@ struct CardCreationPanel: View {
 
     @State private var selectedColumnId: UUID
     @State private var title = ""
-    @State private var label: Label = .blogPost
+    @State private var labelId: UUID = LabelDefinition.builtInLabels[0].id
     @State private var priority: Priority = .normal
     @State private var description = ""
     @State private var dueDate = Date()
@@ -17,6 +17,7 @@ struct CardCreationPanel: View {
     @State private var isRecurring = false
     @State private var recurrenceFrequency: Frequency = .weekly
     @State private var recurrenceInterval: Int = 1
+    @State private var showNewLabelPopover = false
 
     private var availableColumns: [Column] {
         viewModel.sortedColumns.filter { $0.status != .completed }
@@ -56,19 +57,34 @@ struct CardCreationPanel: View {
                     Text("Label *")
                         .foregroundStyle(.secondary)
                     Spacer()
-                    Picker("Label", selection: $label) {
-                        ForEach(Label.sortedAllCases) { l in
+                    Picker("Label", selection: $labelId) {
+                        ForEach(viewModel.board.sortedLabels) { labelDef in
                             SwiftUI.Label {
-                                Text(l.rawValue)
+                                Text(labelDef.name)
                             } icon: {
                                 Circle()
-                                    .fill(l.swiftUIColor)
+                                    .fill(labelDef.swiftUIColor)
                                     .frame(width: 8, height: 8)
                             }
-                            .tag(l)
+                            .tag(labelDef.id)
                         }
                     }
                     .labelsHidden()
+
+                    Button {
+                        showNewLabelPopover = true
+                    } label: {
+                        Image(systemName: "plus.circle")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.plain)
+                    .help("New Label")
+                    .popover(isPresented: $showNewLabelPopover) {
+                        InlineLabelCreator { newId in
+                            labelId = newId
+                        }
+                        .environment(viewModel)
+                    }
                 }
 
                 // Priority (required)
@@ -230,7 +246,7 @@ struct CardCreationPanel: View {
         let recurrenceRule = isRecurring ? RecurrenceRule(interval: min(max(1, recurrenceInterval), 999), frequency: recurrenceFrequency) : nil
         viewModel.createCard(
             title: trimmedTitle,
-            label: label,
+            labelId: labelId,
             priority: priority,
             description: description,
             dueDate: hasDueDate ? dueDate : nil,

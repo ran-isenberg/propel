@@ -5,6 +5,7 @@ import UserNotifications
 struct PropelApp: App {
     @State private var boardViewModel = BoardViewModel()
     @State private var notesViewModel = NotesViewModel()
+    @State private var showLabelManagement = false
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
@@ -14,6 +15,10 @@ struct PropelApp: App {
                 .environment(notesViewModel)
                 .preferredColorScheme(.dark)
                 .frame(minWidth: 800, minHeight: 500)
+                .sheet(isPresented: $showLabelManagement) {
+                    LabelManagementView()
+                        .environment(boardViewModel)
+                }
                 .onAppear {
                     appDelegate.boardViewModel = boardViewModel
                 }
@@ -28,6 +33,12 @@ struct PropelApp: App {
             }
 
             CommandGroup(after: .newItem) {
+                Divider()
+
+                Button("Manage Labels...") {
+                    showLabelManagement = true
+                }
+
                 Divider()
 
                 Button("Change Storage Folder...") {
