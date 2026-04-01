@@ -38,9 +38,11 @@ format-check: ## Check formatting without modifying files
 	@swiftformat --lint Sources/ Tests/
 
 build: check-tools lint ## Build in debug mode (runs linter first)
+	@git fetch --tags -q 2>/dev/null || true
 	swift build
 
 build-release: check-tools lint ## Build in release mode (runs linter first)
+	@git fetch --tags -q 2>/dev/null || true
 	swift build -c release
 
 check: lint format-check test ## Run all checks (lint + format check + tests)
