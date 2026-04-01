@@ -1,5 +1,7 @@
 APP_NAME = Propel
 BUNDLE_ID = com.ranisenberg.propel
+VERSION = 1.6.0
+BUILD_NUMBER = $(shell git rev-list --count HEAD)
 BUILD_DIR = .build
 DEBUG_DIR = $(BUILD_DIR)/debug
 RELEASE_DIR = $(BUILD_DIR)/release
@@ -57,8 +59,8 @@ run: build ## Build and run the app
 		-c "Add :CFBundleIconFile string AppIcon" \
 		-c "Add :CFBundleName string $(APP_NAME)" \
 		-c "Add :CFBundlePackageType string APPL" \
-		-c "Add :CFBundleShortVersionString string 1.0.0" \
-		-c "Add :CFBundleVersion string 1" \
+		-c "Add :CFBundleShortVersionString string $(VERSION)" \
+		-c "Add :CFBundleVersion string $(BUILD_NUMBER)" \
 		-c "Add :LSMinimumSystemVersion string 14.0" \
 		-c "Add :NSHighResolutionCapable bool true" \
 		"$(DEBUG_APP)/Contents/Info.plist"
@@ -81,8 +83,8 @@ app-bundle: build-release ## Create Propel.app bundle
 		-c "Add :CFBundleIconFile string AppIcon" \
 		-c "Add :CFBundleName string $(APP_NAME)" \
 		-c "Add :CFBundlePackageType string APPL" \
-		-c "Add :CFBundleShortVersionString string 1.0.0" \
-		-c "Add :CFBundleVersion string 1" \
+		-c "Add :CFBundleShortVersionString string $(VERSION)" \
+		-c "Add :CFBundleVersion string $(BUILD_NUMBER)" \
 		-c "Add :LSMinimumSystemVersion string 14.0" \
 		-c "Add :NSHighResolutionCapable bool true" \
 		-c "Add :NSSupportsAutomaticTermination bool true" \

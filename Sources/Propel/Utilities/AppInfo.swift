@@ -1,8 +1,13 @@
 import Foundation
 
 enum AppInfo {
-    static let version = "1.2.0"
-    static let buildNumber = "5"
+    static var version: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
+    }
+
+    static var buildNumber: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0"
+    }
 
     static var buildDate: String {
         // Compile-time date from __DATE__ equivalent
