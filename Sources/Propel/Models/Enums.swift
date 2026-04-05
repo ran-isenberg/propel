@@ -35,8 +35,8 @@ struct LabelDefinition: Codable, Identifiable, Equatable, Sendable {
             name: "Blog Post",
             colorName: "blue",
             defaultChecklist: [
-                "Post Structure", "Medium", "LinkedIn Newsletter",
-                "PR", "Merge", "GA", "LinkedIn", "X", "Heroes",
+                "Post Structure", "PR", "Merge", "Medium",
+                "LinkedIn Newsletter", "GA", "LinkedIn", "X", "Heroes",
             ]
         ),
         Self(id: conferenceTalkUUID, name: "Conference Talk", colorName: "purple"),
@@ -85,6 +85,7 @@ struct LabelColor: Identifiable, Sendable {
 
 enum Priority: String, Codable, CaseIterable, Comparable, Identifiable, Sendable {
     case urgent
+    case high
     case normal
     case low
 
@@ -97,8 +98,9 @@ enum Priority: String, Codable, CaseIterable, Comparable, Identifiable, Sendable
     var sortOrder: Int {
         switch self {
         case .urgent: 0
-        case .normal: 1
-        case .low: 2
+        case .high: 1
+        case .normal: 2
+        case .low: 3
         }
     }
 
@@ -170,12 +172,13 @@ enum ColumnStatus: String, Codable, CaseIterable, Identifiable, Sendable {
     case backlog = "Backlog"
     case inProgress = "In Progress"
     case blocked = "Blocked"
+    case ready = "Ready"
     case completed = "Completed"
 
     var id: String { rawValue }
 
     static var defaultOrder: [Self] {
-        [.backlog, .inProgress, .blocked, .completed]
+        [.backlog, .inProgress, .blocked, .ready, .completed]
     }
 
     var headerColor: Color {
@@ -183,6 +186,7 @@ enum ColumnStatus: String, Codable, CaseIterable, Identifiable, Sendable {
         case .backlog: .secondary
         case .inProgress: .blue
         case .blocked: .red
+        case .ready: .purple
         case .completed: .green
         }
     }
@@ -192,6 +196,7 @@ enum ColumnStatus: String, Codable, CaseIterable, Identifiable, Sendable {
         case .backlog: "circle.dotted"
         case .inProgress: "circle.lefthalf.filled"
         case .blocked: "xmark.circle.fill"
+        case .ready: "shippingbox.fill"
         case .completed: "checkmark.circle.fill"
         }
     }

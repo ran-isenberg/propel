@@ -17,9 +17,9 @@ struct PostStructureChecklistTests {
         vm.createCard(title: "Blog", labelId: LabelDefinition.blogPostId, priority: .normal, inColumn: colId)
         let titles = vm.board.cards[0].checklist.map(\.title)
         #expect(titles[0] == "Post Structure")
-        #expect(titles[1] == "Medium")
-        #expect(titles[2] == "LinkedIn Newsletter")
-        #expect(titles[3] == "PR")
+        #expect(titles[1] == "PR")
+        #expect(titles[2] == "Merge")
+        #expect(titles[3] == "Medium")
     }
 
     @Test func postStructureRetroactiveAndNoDuplicates() async {
@@ -45,9 +45,9 @@ struct PostStructureChecklistTests {
         let updated0 = vm.board.cards[0]
         let titles0 = updated0.checklist.map(\.title)
         #expect(titles0[0] == "Post Structure")
-        #expect(titles0[1] == "Medium")
-        #expect(titles0[2] == "LinkedIn Newsletter")
-        #expect(titles0[3] == "PR")
+        #expect(titles0[1] == "PR")
+        #expect(titles0[2] == "Merge")
+        #expect(titles0[3] == "Medium")
         #expect(updated0.checklist.filter { $0.title == "PR" }.count == 1)
         #expect(updated0.checklist.first { $0.title == "PR" }?.isCompleted == true)
 
@@ -60,16 +60,16 @@ struct PostStructureChecklistTests {
     @Test func postStructureReorderedWhenAllItemsPresentButWrongOrder() async {
         let vm = await Self.makeViewModel()
         var board = Board()
-        // Card with all default items but Post Structure at the end (wrong order)
+        // Card with all default items but in wrong order
         var card = Card(title: "Rust Blog", columnId: board.columns[0].id, labelId: LabelDefinition.blogPostId)
         card.checklist = [
-            ChecklistItem(title: "PR", position: 0),
-            ChecklistItem(title: "Merge", isCompleted: true, position: 1),
-            ChecklistItem(title: "GA", position: 2),
-            ChecklistItem(title: "LinkedIn", position: 3),
-            ChecklistItem(title: "X", position: 4),
-            ChecklistItem(title: "Heroes", position: 5),
-            ChecklistItem(title: "Post Structure", position: 6),
+            ChecklistItem(title: "GA", position: 0),
+            ChecklistItem(title: "LinkedIn", position: 1),
+            ChecklistItem(title: "X", position: 2),
+            ChecklistItem(title: "Heroes", position: 3),
+            ChecklistItem(title: "Post Structure", position: 4),
+            ChecklistItem(title: "PR", position: 5),
+            ChecklistItem(title: "Merge", isCompleted: true, position: 6),
             ChecklistItem(title: "Medium", position: 7),
             ChecklistItem(title: "LinkedIn Newsletter", position: 8),
         ]
@@ -80,10 +80,10 @@ struct PostStructureChecklistTests {
         let updated = vm.board.cards[0]
         let titles = updated.checklist.map(\.title)
         #expect(titles[0] == "Post Structure")
-        #expect(titles[1] == "Medium")
-        #expect(titles[2] == "LinkedIn Newsletter")
-        #expect(titles[3] == "PR")
-        #expect(titles[4] == "Merge")
+        #expect(titles[1] == "PR")
+        #expect(titles[2] == "Merge")
+        #expect(titles[3] == "Medium")
+        #expect(titles[4] == "LinkedIn Newsletter")
         // Completion state preserved after reorder
         #expect(updated.checklist.first { $0.title == "Merge" }?.isCompleted == true)
         // No duplicates

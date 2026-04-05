@@ -8,11 +8,12 @@ import Testing
 struct BoardTests {
     @Test func initializesWithDefaultColumns() {
         let board = Board()
-        #expect(board.columns.count == 4)
+        #expect(board.columns.count == 5)
         #expect(board.columns[0].status == .backlog)
         #expect(board.columns[1].status == .inProgress)
         #expect(board.columns[2].status == .blocked)
-        #expect(board.columns[3].status == .completed)
+        #expect(board.columns[3].status == .ready)
+        #expect(board.columns[4].status == .completed)
     }
 
     @Test func defaultColumnsHaveCorrectNames() {
@@ -20,7 +21,8 @@ struct BoardTests {
         #expect(board.columns[0].name == "Backlog")
         #expect(board.columns[1].name == "In Progress")
         #expect(board.columns[2].name == "Blocked")
-        #expect(board.columns[3].name == "Completed")
+        #expect(board.columns[3].name == "Ready")
+        #expect(board.columns[4].name == "Completed")
     }
 
     @Test func defaultColumnsHaveCorrectPositions() {
@@ -269,17 +271,19 @@ struct RecurrenceRuleTests {
 
 struct PriorityTests {
     @Test func sortOrder() {
-        #expect(Priority.urgent < Priority.normal)
+        #expect(Priority.urgent < Priority.high)
+        #expect(Priority.high < Priority.normal)
         #expect(Priority.normal < Priority.low)
         #expect(Priority.urgent < Priority.low)
     }
 
     @Test func allCasesExist() {
-        #expect(Priority.allCases.count == 3)
+        #expect(Priority.allCases.count == 4)
     }
 
     @Test func displayNames() {
         #expect(Priority.urgent.displayName == "Urgent")
+        #expect(Priority.high.displayName == "High")
         #expect(Priority.normal.displayName == "Normal")
         #expect(Priority.low.displayName == "Low")
     }
@@ -315,13 +319,13 @@ struct LabelTests {
 // MARK: - ColumnStatus Tests
 
 struct ColumnStatusTests {
-    @Test func defaultOrderHasFourStatuses() {
-        #expect(ColumnStatus.defaultOrder.count == 4)
+    @Test func defaultOrderHasFiveStatuses() {
+        #expect(ColumnStatus.defaultOrder.count == 5)
     }
 
     @Test func defaultOrderIsCorrect() {
         let order = ColumnStatus.defaultOrder
-        #expect(order == [.backlog, .inProgress, .blocked, .completed])
+        #expect(order == [.backlog, .inProgress, .blocked, .ready, .completed])
     }
 }
 
@@ -371,7 +375,7 @@ struct StatusHeaderColorTests {
     @Test func eachStatusHasDistinctColor() {
         let colors = ColumnStatus.allCases.map(\.headerColor)
         // Just verify they exist and are accessible
-        #expect(colors.count == 4)
+        #expect(colors.count == 5)
     }
 
     @Test func blockedIsRed() {

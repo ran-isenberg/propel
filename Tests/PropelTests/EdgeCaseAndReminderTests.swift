@@ -226,7 +226,7 @@ struct EdgeCaseTests {
     @Test func autoArchiveWithZeroDaysShowsAllCompleted() async {
         let vm = await Self.makeViewModel()
         var board = Board()
-        let completedId = board.columns[3].id
+        let completedId = board.columns[4].id
         var card = Card(title: "Old Done", columnId: completedId, labelId: LabelDefinition.blogPostId)
         card.completedAt = Calendar.current.date(byAdding: .day, value: -30, to: Date())
         board.cards.append(card)
@@ -235,7 +235,7 @@ struct EdgeCaseTests {
             vm.autoArchiveDays = 0
         }
 
-        let completedColumn = board.columns[3]
+        let completedColumn = board.columns[4]
         let cards = await vm.cardsForColumn(completedColumn)
         #expect(cards.count == 1)
     }

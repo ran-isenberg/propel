@@ -35,6 +35,12 @@ struct MenuBarView: View {
                     color: .red
                 )
                 MenuBarStat(
+                    icon: "shippingbox",
+                    label: "Ready",
+                    count: cardCount(for: .ready),
+                    color: .purple
+                )
+                MenuBarStat(
                     icon: "checkmark.circle",
                     label: "Done",
                     count: cardCount(for: .completed),

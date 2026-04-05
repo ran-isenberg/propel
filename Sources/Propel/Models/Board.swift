@@ -66,6 +66,29 @@ struct Board: Codable, Identifiable, Equatable, Sendable {
         labels = try container.decodeIfPresent([LabelDefinition].self, forKey: .labels) ?? LabelDefinition.builtInLabels
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+
+        // Migration: sync defaultChecklist for built-in labels
+        let builtInById = Dictionary(uniqueKeysWithValues: LabelDefinition.builtInLabels.map { ($0.id, $0) })
+        for i in labels.indices {
+            if let builtIn = builtInById[labels[i].id] {
+                labels[i].defaultChecklist = builtIn.defaultChecklist
+            }
+        }
+
+        // Migration: add any missing columns from defaultOrder
+        let existingStatuses = Set(columns.map(\.status))
+        for status in ColumnStatus.defaultOrder where !existingStatuses.contains(status) {
+            let desiredIndex = ColumnStatus.defaultOrder.firstIndex(of: status) ?? columns.count
+            let insertAt = min(desiredIndex, columns.count)
+            columns.insert(
+                Column(name: status.rawValue, status: status, position: insertAt),
+                at: insertAt
+            )
+            // Reindex positions after insertion
+            for i in columns.indices {
+                columns[i].position = i
+            }
+        }
     }
 
     /// Look up a label definition by ID, with a fallback for orphaned IDs.
