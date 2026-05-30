@@ -286,9 +286,10 @@ struct AutoArchiveTests {
         return vm
     }
 
-    @Test func recentCompletedCardsAreVisible() {
+    @Test func recentCompletedCardsAreVisible() throws {
         let vm = makeViewModel()
-        let completedId = vm.board.columns[4].id
+        let completedColumn = try #require(vm.column(for: .completed))
+        let completedId = completedColumn.id
         vm.board.cards.append(Card(
             title: "Just done",
             columnId: completedId,
@@ -296,13 +297,14 @@ struct AutoArchiveTests {
             completedAt: Date()
         ))
         vm.autoArchiveDays = 7
-        let cards = vm.cardsForColumn(vm.board.columns[4])
+        let cards = vm.cardsForColumn(completedColumn)
         #expect(cards.count == 1)
     }
 
     @Test func oldCompletedCardsAreHidden() throws {
         let vm = makeViewModel()
-        let completedId = vm.board.columns[4].id
+        let completedColumn = try #require(vm.column(for: .completed))
+        let completedId = completedColumn.id
         let tenDaysAgo = try #require(Calendar.current.date(byAdding: .day, value: -10, to: Date()))
         vm.board.cards.append(Card(
             title: "Old done",
@@ -311,13 +313,14 @@ struct AutoArchiveTests {
             completedAt: tenDaysAgo
         ))
         vm.autoArchiveDays = 7
-        let cards = vm.cardsForColumn(vm.board.columns[4])
+        let cards = vm.cardsForColumn(completedColumn)
         #expect(cards.isEmpty)
     }
 
     @Test func disabledAutoArchiveShowsAll() throws {
         let vm = makeViewModel()
-        let completedId = vm.board.columns[4].id
+        let completedColumn = try #require(vm.column(for: .completed))
+        let completedId = completedColumn.id
         let oldDate = try #require(Calendar.current.date(byAdding: .day, value: -30, to: Date()))
         vm.board.cards.append(Card(
             title: "Very old",
@@ -326,7 +329,7 @@ struct AutoArchiveTests {
             completedAt: oldDate
         ))
         vm.autoArchiveDays = 0
-        let cards = vm.cardsForColumn(vm.board.columns[4])
+        let cards = vm.cardsForColumn(completedColumn)
         #expect(cards.count == 1)
     }
 }

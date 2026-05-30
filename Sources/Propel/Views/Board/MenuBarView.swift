@@ -7,7 +7,7 @@ struct MenuBarView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(viewModel.board.name)
+            Text("All Boards")
                 .font(.headline)
                 .padding(.horizontal, 12)
                 .padding(.top, 8)
@@ -50,7 +50,7 @@ struct MenuBarView: View {
             .padding(.horizontal, 12)
 
             // Attention items
-            if viewModel.overdueCount > 0 || viewModel.deliveredReminderCount > 0 {
+            if viewModel.aggregateOverdueCount > 0 || viewModel.deliveredReminderCount > 0 {
                 Divider()
                 VStack(alignment: .leading, spacing: 4) {
                     if viewModel.deliveredReminderCount > 0 {
@@ -62,12 +62,12 @@ struct MenuBarView: View {
                                 .font(.caption)
                         }
                     }
-                    if viewModel.overdueCount > 0 {
+                    if viewModel.aggregateOverdueCount > 0 {
                         HStack(spacing: 4) {
                             Image(systemName: "exclamationmark.triangle.fill")
                                 .foregroundStyle(.red)
                                 .font(.caption)
-                            Text("\(viewModel.overdueCount) overdue")
+                            Text("\(viewModel.aggregateOverdueCount) overdue")
                                 .font(.caption)
                         }
                     }
@@ -78,37 +78,29 @@ struct MenuBarView: View {
             Divider()
 
             // Quick actions
-            Button {
+            MenuActionButton(icon: "macwindow", title: "Open Board") {
                 activateMainWindow()
-            } label: {
-                HStack {
-                    Image(systemName: "macwindow")
-                    Text("Open Board")
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .buttonStyle(.plain)
-            .padding(.horizontal, 12)
 
-            Button {
+            MenuActionButton(icon: "plus", title: "Quick Add Card") {
                 if let backlog = viewModel.column(for: .backlog) {
                     viewModel.startCreatingCard(inColumn: backlog.id)
                 }
                 activateMainWindow()
-            } label: {
-                HStack {
-                    Image(systemName: "plus")
-                    Text("Quick Add Card")
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .buttonStyle(.plain)
-            .padding(.horizontal, 12)
+
+            Divider()
+
+            MenuActionButton(icon: "power", title: "Quit Propel", role: .destructive) {
+                NSApp.terminate(nil)
+            }
+            .keyboardShortcut("q", modifiers: .command)
             .padding(.bottom, 8)
         }
         .frame(width: 280)
         .task {
             await viewModel.refreshDeliveredNotificationCount()
+            await viewModel.refreshBoardsSummary()
         }
     }
 
@@ -128,8 +120,39 @@ struct MenuBarView: View {
     }
 
     private func cardCount(for status: ColumnStatus) -> Int {
-        guard let column = viewModel.column(for: status) else { return 0 }
-        return viewModel.board.cards.count(where: { $0.columnId == column.id })
+        viewModel.aggregateStatusCounts[status] ?? 0
+    }
+}
+
+/// A full-width menu row that highlights under the pointer so it's clear what's
+/// about to be clicked.
+private struct MenuActionButton: View {
+    let icon: String
+    let title: String
+    var role: ButtonRole?
+    let action: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(role: role, action: action) {
+            HStack {
+                Image(systemName: icon)
+                Text(title)
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 5)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .background(
+                RoundedRectangle(cornerRadius: 5)
+                    .fill(isHovering ? Color.accentColor.opacity(0.18) : Color.clear)
+                    .padding(.horizontal, 6)
+            )
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovering = $0 }
     }
 }
 

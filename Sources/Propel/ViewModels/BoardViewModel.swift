@@ -4,11 +4,32 @@ import UserNotifications
 @Observable
 @MainActor
 final class BoardViewModel {
+    /// Number of board positions the app supports.
+    static let slotCount = StorageService.slotCount
+    private static let activeBoardIdKey = "PropelActiveBoardId"
+    /// Pre-id active-position key, migrated once if present.
+    private static let legacyActiveSlotKey = "PropelActiveBoardSlot"
+
     var board: Board = .init()
     var selectedCardId: UUID?
     var isCreatingCard: Bool = false
     var creationTargetColumnId: UUID?
     var errorMessage: String?
+
+    // MARK: - Board Slots
+
+    /// Ordered board ids defining positions 1...slotCount.
+    private(set) var boardOrder: [UUID] = []
+    /// The id of the board currently displayed (the active board follows its
+    /// board across reorders).
+    private(set) var activeBoardId: UUID?
+    /// Display names for each position (1-based), empty/unnamed positions omitted.
+    private(set) var slotNames: [Int: String] = [:]
+
+    /// Card counts per status summed across all boards (for the menu bar summary).
+    private(set) var aggregateStatusCounts: [ColumnStatus: Int] = [:]
+    /// Overdue cards summed across all boards.
+    private(set) var aggregateOverdueCount: Int = 0
 
     // MARK: - Filters
 
@@ -45,8 +66,10 @@ final class BoardViewModel {
 
     private var debouncedSave: DebouncedSave?
     private var notificationCheckTask: Task<Void, Never>?
+    private let storage: StorageService
 
-    init() {
+    init(storage: StorageService = .shared) {
+        self.storage = storage
         debouncedSave = DebouncedSave { [weak self] in
             await self?.persistBoard()
         }
@@ -60,10 +83,17 @@ final class BoardViewModel {
 
     // MARK: - Persistence
 
+    /// Load the manifest order and the active board.
     func loadBoard() async {
         do {
-            board = try await StorageService.shared.loadBoard()
-            addDefaultChecklistToCards()
+            boardOrder = try await storage.loadBoards().map(\.id)
+            resolveActiveBoardId()
+            if let id = activeBoardId {
+                board = try await storage.loadBoard(id: id)
+                addDefaultChecklistToCards()
+            }
+            await refreshSlotNames()
+            await refreshBoardsSummary()
         } catch {
             errorMessage = "Failed to load board: \(error.localizedDescription)"
             board = Board()
@@ -80,8 +110,10 @@ final class BoardViewModel {
     }
 
     private func persistBoard() async {
+        guard activeBoardId != nil else { return }
         do {
-            try await StorageService.shared.saveBoard(board)
+            try await storage.saveBoard(board)
+            await refreshBoardsSummary()
         } catch {
             errorMessage = "Failed to save board: \(error.localizedDescription)"
         }
@@ -94,7 +126,7 @@ final class BoardViewModel {
     }
 
     func column(for status: ColumnStatus) -> Column? {
-        board.columns.first { $0.status == status }
+        board.column(for: status)
     }
 
     func cardsForColumn(_ column: Column) -> [Card] {
@@ -251,7 +283,7 @@ final class BoardViewModel {
     // MARK: - Menu Bar Badge
 
     var menuBarBadgeCount: Int {
-        overdueCount + deliveredReminderCount
+        aggregateOverdueCount + deliveredReminderCount
     }
 
     // MARK: - Notifications
@@ -412,6 +444,10 @@ final class BoardViewModel {
     }
 
     func addDefaultChecklistToCards() {
+        // Reordering default items to match the built-in order is a one-time
+        // migration. Running it on every load would silently undo any deliberate
+        // reordering the user makes, so it is gated behind the schema version.
+        let isMigrating = board.schemaVersion < Board.currentSchemaVersion
         var didModify = false
         for index in board.cards.indices {
             let labelDef = board.label(for: board.cards[index].labelId)
@@ -422,16 +458,18 @@ final class BoardViewModel {
             }
             let existing = Set(board.cards[index].checklist.map(\.title))
             let missing = defaultChecklistItems.filter { !existing.contains($0.title) }
-
-            // Check if default items are in correct relative order
-            let currentTitles = board.cards[index].checklist.map(\.title)
             let defaultTitles = Set(defaultChecklistItems.map(\.title))
+
+            // Whether the default items are out of their built-in relative order.
+            let currentTitles = board.cards[index].checklist.map(\.title)
             let currentDefaultOrder = currentTitles.filter { defaultTitles.contains($0) }
             let expectedOrder = defaultChecklistItems.map(\.title).filter { existing.contains($0) }
             let needsReorder = currentDefaultOrder != expectedOrder
 
-            if !missing.isEmpty || needsReorder {
-                // Build ordered list: default items first (in order), then any custom items
+            if !missing.isEmpty || (needsReorder && isMigrating) {
+                // Rebuild as: default items in built-in order, then custom items.
+                // Triggered when items are missing (so new defaults land in the
+                // right place) or, during a one-time migration, to normalize order.
                 let customItems = board.cards[index].checklist.filter { !defaultTitles.contains($0.title) }
                 var merged: [ChecklistItem] = []
                 for defaultItem in defaultChecklistItems {
@@ -459,9 +497,9 @@ final class BoardViewModel {
                 didModify = true
             }
         }
-        if didModify {
-            scheduleSave()
-        }
+        // Persist the bumped version so the reorder migration does not run again.
+        if isMigrating { board.schemaVersion = Board.currentSchemaVersion }
+        if didModify || isMigrating { scheduleSave() }
     }
 
     func updateCard(_ card: Card) {
@@ -610,20 +648,27 @@ final class BoardViewModel {
     var showSidePanel: Bool {
         selectedCardId != nil || isCreatingCard
     }
+}
 
-    // MARK: - Storage
+// MARK: - Storage
 
+extension BoardViewModel {
     func changeStorageFolder(to url: URL) async {
         do {
-            let previousFolder = await StorageService.shared.currentStorageFolder
-            try await StorageService.shared.changeStorageFolder(to: url)
+            let previousFolder = await storage.currentStorageFolder
+            try await storage.changeStorageFolder(to: url)
             do {
-                // Reload board and notes from the new location
-                board = try await StorageService.shared.loadBoard()
-                addDefaultChecklistToCards()
+                // Reload the manifest, order, and active board from the new location.
+                boardOrder = try await storage.loadBoards().map(\.id)
+                resolveActiveBoardId()
+                if let id = activeBoardId {
+                    board = try await storage.loadBoard(id: id)
+                    addDefaultChecklistToCards()
+                }
+                await refreshSlotNames()
             } catch {
                 // Loading failed — revert storage to prevent auto-save overwriting user files
-                try? await StorageService.shared.changeStorageFolder(to: previousFolder)
+                try? await storage.changeStorageFolder(to: previousFolder)
                 errorMessage = "Failed to load data from selected folder: \(error.localizedDescription)"
             }
         } catch {
@@ -632,7 +677,7 @@ final class BoardViewModel {
     }
 
     func currentStorageFolder() async -> URL {
-        await StorageService.shared.currentStorageFolder
+        await storage.currentStorageFolder
     }
 }
 
@@ -644,6 +689,223 @@ struct WeeklyReviewData {
     let inProgressCards: [Card]
     let overdueCards: [Card]
     let totalCards: Int
+}
+
+// MARK: - Board Slots
+
+extension BoardViewModel {
+    /// The 1-based position of the active board, or 1 if not yet resolved.
+    var activeSlot: Int {
+        guard let id = activeBoardId, let index = boardOrder.firstIndex(of: id) else { return 1 }
+        return index + 1
+    }
+
+    /// Pick the active board id from persisted state, falling back to position 1.
+    func resolveActiveBoardId() {
+        let defaults = UserDefaults.standard
+        // One-time migration from the position-based key.
+        if defaults.string(forKey: Self.activeBoardIdKey) == nil,
+           defaults.object(forKey: Self.legacyActiveSlotKey) != nil {
+            let slot = defaults.integer(forKey: Self.legacyActiveSlotKey)
+            if (1...boardOrder.count).contains(slot) {
+                defaults.set(boardOrder[slot - 1].uuidString, forKey: Self.activeBoardIdKey)
+            }
+            defaults.removeObject(forKey: Self.legacyActiveSlotKey)
+        }
+
+        if let stored = defaults.string(forKey: Self.activeBoardIdKey),
+           let id = UUID(uuidString: stored), boardOrder.contains(id) {
+            activeBoardId = id
+        } else {
+            activeBoardId = boardOrder.first
+        }
+    }
+
+    private func setActiveBoardId(_ id: UUID) {
+        activeBoardId = id
+        UserDefaults.standard.set(id.uuidString, forKey: Self.activeBoardIdKey)
+    }
+
+    /// Reset per-board UI state that should not leak across a slot change.
+    private func resetTransientBoardState() {
+        selectedCardId = nil
+        isCreatingCard = false
+        creationTargetColumnId = nil
+        filterLabel = nil
+        filterPriority = nil
+        searchText = ""
+        isSearching = false
+        collapsedColumnIds = []
+        showAttentionView = false
+    }
+
+    /// Reload position display names. The active position reflects the live
+    /// in-memory name; others are read from disk.
+    func refreshSlotNames() async {
+        var names: [Int: String] = [:]
+        for (index, id) in boardOrder.enumerated() {
+            let position = index + 1
+            if id == activeBoardId {
+                names[position] = board.name
+            } else if let name = await storage.boardName(id: id) {
+                names[position] = name
+            }
+        }
+        slotNames = names
+    }
+
+    /// Recompute the menu-bar summary across all boards. The active board is read
+    /// from memory; the others are loaded from disk.
+    func refreshBoardsSummary() async {
+        var counts: [ColumnStatus: Int] = [:]
+        var overdue = 0
+        for id in boardOrder {
+            let summaryBoard: Board? = (id == activeBoardId) ? board : (try? await storage.loadBoard(id: id))
+            guard let summaryBoard else { continue }
+            for status in ColumnStatus.allCases {
+                counts[status, default: 0] += summaryBoard.cardCount(for: status)
+            }
+            overdue += summaryBoard.overdueCardCount
+        }
+        aggregateStatusCounts = counts
+        aggregateOverdueCount = overdue
+    }
+
+    /// The board id at a 1-based position, if any.
+    private func boardId(atPosition position: Int) -> UUID? {
+        guard (1...boardOrder.count).contains(position) else { return nil }
+        return boardOrder[position - 1]
+    }
+
+    /// Persist the current board, then switch to display the board at a position.
+    func switchToPosition(_ position: Int) async {
+        guard let id = boardId(atPosition: position), id != activeBoardId else { return }
+        await persistBoard()
+        setActiveBoardId(id)
+        resetTransientBoardState()
+        do {
+            board = try await storage.loadBoard(id: id)
+            addDefaultChecklistToCards()
+        } catch {
+            errorMessage = "Failed to load board: \(error.localizedDescription)"
+        }
+        scheduleNotificationCheck()
+        await refreshDeliveredNotificationCount()
+        await refreshSlotNames()
+        await refreshBoardsSummary()
+    }
+
+    /// Reorder by swapping two positions. The active board is untouched, so it
+    /// stays selected and its highlighted button simply moves.
+    func swapPositions(_ a: Int, _ b: Int) async {
+        guard a != b, (1...boardOrder.count).contains(a), (1...boardOrder.count).contains(b) else { return }
+        boardOrder.swapAt(a - 1, b - 1)
+        do {
+            try await storage.saveManifest(StorageService.BoardsManifest(order: boardOrder))
+        } catch {
+            errorMessage = "Failed to reorder boards: \(error.localizedDescription)"
+            return
+        }
+        await refreshSlotNames()
+    }
+
+    /// Whether `name` is free to use (case-insensitive) for the board with `id`.
+    /// Empty names are always allowed (multiple unnamed boards are fine).
+    private func isNameAvailable(_ name: String, excluding id: UUID?) async -> Bool {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return true }
+        for other in boardOrder where other != id {
+            let existing = other == activeBoardId ? board.name : (await storage.boardName(id: other) ?? "")
+            if existing.caseInsensitiveCompare(trimmed) == .orderedSame { return false }
+        }
+        return true
+    }
+
+    /// Rename the active board, blocking on a case-insensitive name collision.
+    func renameActiveBoard(to newName: String) async {
+        guard let id = activeBoardId else { return }
+        await renameBoard(id: id, to: newName)
+    }
+
+    /// Rename a board by id, blocking on a case-insensitive name collision.
+    func renameBoard(id: UUID, to newName: String) async {
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard await isNameAvailable(trimmed, excluding: id) else {
+            errorMessage = "A board named “\(trimmed)” already exists."
+            return
+        }
+        if id == activeBoardId {
+            board.name = trimmed
+            scheduleSave()
+        } else {
+            do {
+                var target = try await storage.loadBoard(id: id)
+                target.name = trimmed
+                target.updatedAt = Date()
+                try await storage.saveBoard(target)
+            } catch {
+                errorMessage = "Failed to rename board: \(error.localizedDescription)"
+                return
+            }
+        }
+        await refreshSlotNames()
+    }
+
+    /// Import an external board file into a position (replacing whatever is there),
+    /// blocking on a case-insensitive name collision with another board.
+    func importBoard(from url: URL, intoPosition position: Int) async {
+        guard let replacedId = boardId(atPosition: position) else { return }
+        let imported: Board
+        do {
+            imported = try await storage.importBoard(from: url)
+        } catch {
+            errorMessage = "Failed to import board: \(error.localizedDescription)"
+            return
+        }
+        guard await isNameAvailable(imported.name, excluding: replacedId) else {
+            await storage.deleteBoardFile(id: imported.id)
+            errorMessage = "A board named “\(imported.name)” already exists."
+            return
+        }
+        await placeBoard(imported.id, atPosition: position, replacing: replacedId, makeActive: true)
+    }
+
+    /// Reset a position to a fresh empty board.
+    func deleteBoard(atPosition position: Int) async {
+        guard let replacedId = boardId(atPosition: position) else { return }
+        let replacement = Board()
+        do {
+            try await storage.saveBoard(replacement)
+        } catch {
+            errorMessage = "Failed to delete board: \(error.localizedDescription)"
+            return
+        }
+        await placeBoard(replacement.id, atPosition: position, replacing: replacedId, makeActive: replacedId == activeBoardId)
+    }
+
+    /// Wire a saved board into a position, removing the replaced board's file and
+    /// updating the manifest. Reloads when the affected position is active.
+    private func placeBoard(_ newId: UUID, atPosition position: Int, replacing oldId: UUID, makeActive: Bool) async {
+        boardOrder[position - 1] = newId
+        await storage.deleteBoardFile(id: oldId)
+        do {
+            try await storage.saveManifest(StorageService.BoardsManifest(order: boardOrder))
+        } catch {
+            errorMessage = "Failed to update boards: \(error.localizedDescription)"
+        }
+        if makeActive {
+            setActiveBoardId(newId)
+            resetTransientBoardState()
+            do {
+                board = try await storage.loadBoard(id: newId)
+                addDefaultChecklistToCards()
+            } catch {
+                errorMessage = "Failed to load board: \(error.localizedDescription)"
+            }
+        }
+        await refreshSlotNames()
+        await refreshBoardsSummary()
+    }
 }
 
 // MARK: - Label Management

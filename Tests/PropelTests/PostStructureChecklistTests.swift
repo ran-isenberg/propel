@@ -60,6 +60,8 @@ struct PostStructureChecklistTests {
     @Test func postStructureReorderedWhenAllItemsPresentButWrongOrder() async {
         let vm = await Self.makeViewModel()
         var board = Board()
+        // Simulate a legacy board so the one-time reorder migration runs.
+        board.schemaVersion = 0
         // Card with all default items but in wrong order
         var card = Card(title: "Rust Blog", columnId: board.columns[0].id, labelId: LabelDefinition.blogPostId)
         card.checklist = [
@@ -88,5 +90,34 @@ struct PostStructureChecklistTests {
         #expect(updated.checklist.first { $0.title == "Merge" }?.isCompleted == true)
         // No duplicates
         #expect(updated.checklist.filter { $0.title == "Post Structure" }.count == 1)
+        // Migration is recorded so it does not run again
+        #expect(vm.board.schemaVersion == Board.currentSchemaVersion)
+    }
+
+    @Test func userReorderingOfDefaultItemsIsPreservedOnCurrentSchema() async {
+        let vm = await Self.makeViewModel()
+        var board = Board()
+        // Current-schema board: the user has deliberately reordered default items.
+        #expect(board.schemaVersion == Board.currentSchemaVersion)
+        var card = Card(title: "Reordered Blog", columnId: board.columns[0].id, labelId: LabelDefinition.blogPostId)
+        let userOrder = [
+            ChecklistItem(title: "PR", position: 0),
+            ChecklistItem(title: "Post Structure", position: 1),
+            ChecklistItem(title: "Merge", position: 2),
+            ChecklistItem(title: "Medium", position: 3),
+            ChecklistItem(title: "LinkedIn Newsletter", position: 4),
+            ChecklistItem(title: "GA", position: 5),
+            ChecklistItem(title: "LinkedIn", position: 6),
+            ChecklistItem(title: "X", position: 7),
+            ChecklistItem(title: "Heroes", position: 8),
+        ]
+        card.checklist = userOrder
+        board.cards.append(card)
+        await MainActor.run { vm.board = board }
+        await MainActor.run { vm.addDefaultChecklistToCards() }
+
+        // No missing items and not migrating, so the user's order is untouched.
+        let titles = vm.board.cards[0].checklist.map(\.title)
+        #expect(titles == userOrder.map(\.title))
     }
 }

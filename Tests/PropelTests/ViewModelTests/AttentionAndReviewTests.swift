@@ -52,7 +52,7 @@ struct AttentionViewTests {
 
     @Test func completedCardsExcludedFromAttention() throws {
         let vm = makeViewModel()
-        let completedId = vm.board.columns[4].id
+        let completedId = try #require(vm.column(for: .completed)).id
         let yesterday = try #require(Calendar.current.date(byAdding: .day, value: -1, to: Date()))
         vm.board.cards.append(Card(
             title: "Done overdue",
@@ -105,9 +105,9 @@ struct WeeklyReviewTests {
         return vm
     }
 
-    @Test func reviewDataCountsCompletedThisWeek() {
+    @Test func reviewDataCountsCompletedThisWeek() throws {
         let vm = makeViewModel()
-        let completedId = vm.board.columns[4].id
+        let completedId = try #require(vm.column(for: .completed)).id
         vm.board.cards.append(Card(
             title: "Done today",
             columnId: completedId,
@@ -164,24 +164,30 @@ struct WeeklyReviewTests {
 
 @MainActor
 struct MenuBarBadgeTests {
-    private func makeViewModel() -> BoardViewModel {
-        let vm = BoardViewModel()
-        vm.board = Board()
+    /// A view model backed by an isolated temporary storage folder.
+    private func makeViewModel() async throws -> BoardViewModel {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("PropelTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let vm = BoardViewModel(storage: StorageService(storageDirectory: dir))
+        await vm.loadBoard()
         return vm
     }
 
-    @Test func badgeCountShowsOverdue() throws {
-        let vm = makeViewModel()
-        let colId = vm.board.columns[0].id
+    @Test func badgeCountAggregatesOverdueAcrossBoards() async throws {
+        let vm = try await makeViewModel()
         let yesterday = try #require(Calendar.current.date(byAdding: .day, value: -1, to: Date()))
+        let colId = vm.board.columns[0].id
         vm.board.cards.append(Card(title: "OD", columnId: colId, labelId: LabelDefinition.blogPostId, dueDate: yesterday))
+        await vm.refreshBoardsSummary()
         #expect(vm.menuBarBadgeCount == 1)
     }
 
-    @Test func zeroBadgeWhenAllClear() {
-        let vm = makeViewModel()
+    @Test func zeroBadgeWhenAllClear() async throws {
+        let vm = try await makeViewModel()
         let colId = vm.board.columns[0].id
         vm.createCard(title: "Normal", labelId: LabelDefinition.blogPostId, priority: .normal, inColumn: colId)
+        await vm.refreshBoardsSummary()
         #expect(vm.menuBarBadgeCount == 0)
     }
 }

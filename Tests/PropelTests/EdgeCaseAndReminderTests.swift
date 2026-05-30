@@ -223,10 +223,11 @@ struct EdgeCaseTests {
 
     // MARK: - Auto-Archive Cutoff
 
-    @Test func autoArchiveWithZeroDaysShowsAllCompleted() async {
+    @Test func autoArchiveWithZeroDaysShowsAllCompleted() async throws {
         let vm = await Self.makeViewModel()
         var board = Board()
-        let completedId = board.columns[4].id
+        let completedColumn = try #require(board.column(for: .completed))
+        let completedId = completedColumn.id
         var card = Card(title: "Old Done", columnId: completedId, labelId: LabelDefinition.blogPostId)
         card.completedAt = Calendar.current.date(byAdding: .day, value: -30, to: Date())
         board.cards.append(card)
@@ -235,7 +236,6 @@ struct EdgeCaseTests {
             vm.autoArchiveDays = 0
         }
 
-        let completedColumn = board.columns[4]
         let cards = await vm.cardsForColumn(completedColumn)
         #expect(cards.count == 1)
     }

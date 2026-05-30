@@ -3,11 +3,17 @@ import Foundation
 actor StorageService {
     static let shared = StorageService()
 
+    /// Number of board positions the app supports.
+    static let slotCount = 3
+    /// Manifest holding the ordered list of board ids (positions 1...slotCount).
+    private static let manifestFileName = "boards.json"
+    /// Pre-multi-board single-board filename, migrated on first load.
+    private static let legacyBoardFileName = "board.json"
+
     private static let storageFolderKey = "PropelStorageFolder"
     private static let bookmarkKey = "PropelStorageFolderBookmark"
 
     private var storageDir: URL
-    private var boardFileURL: URL
     private var notesFileURL: URL
     private var isAccessingSecurityScope = false
 
@@ -41,7 +47,6 @@ actor StorageService {
                     }
                 }
                 storageDir = url
-                boardFileURL = url.appendingPathComponent("board.json")
                 notesFileURL = url.appendingPathComponent("notes.json")
                 return
             }
@@ -57,8 +62,35 @@ actor StorageService {
                 ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support")
             storageDir = appSupport.appendingPathComponent("Propel", isDirectory: true)
         }
-        boardFileURL = storageDir.appendingPathComponent("board.json")
         notesFileURL = storageDir.appendingPathComponent("notes.json")
+    }
+
+    /// Test-only initializer that points storage at a specific directory,
+    /// skipping the security-scoped bookmark / UserDefaults bootstrap.
+    init(storageDirectory: URL) {
+        storageDir = storageDirectory
+        notesFileURL = storageDirectory.appendingPathComponent("notes.json")
+    }
+
+    // MARK: - Board File URLs
+
+    /// A board is stored at `board-<uuid>.json`, keyed by its stable id, so files
+    /// are never renamed when a board is renamed or reordered.
+    private func boardFileURL(id: UUID) -> URL {
+        storageDir.appendingPathComponent("board-\(id.uuidString).json")
+    }
+
+    private var manifestFileURL: URL {
+        storageDir.appendingPathComponent(Self.manifestFileName)
+    }
+
+    private var legacyBoardFileURL: URL {
+        storageDir.appendingPathComponent(Self.legacyBoardFileName)
+    }
+
+    /// Old position-named file from the unreleased slot scheme (migration only).
+    private func legacySlotFileURL(slot: Int) -> URL {
+        storageDir.appendingPathComponent("board-\(slot).json")
     }
 
     // MARK: - Security-Scoped Access
@@ -108,20 +140,22 @@ actor StorageService {
 
         try fm.createDirectory(at: newFolder, withIntermediateDirectories: true)
 
-        let newBoardURL = newFolder.appendingPathComponent("board.json")
-        let newNotesURL = newFolder.appendingPathComponent("notes.json")
-
-        // Copy existing files to new location if they don't already exist there
-        if fm.fileExists(atPath: boardFileURL.path), !fm.fileExists(atPath: newBoardURL.path) {
-            try fm.copyItem(at: boardFileURL, to: newBoardURL)
-        }
-        if fm.fileExists(atPath: notesFileURL.path), !fm.fileExists(atPath: newNotesURL.path) {
-            try fm.copyItem(at: notesFileURL, to: newNotesURL)
+        // Copy existing data files to the new location if not already present there.
+        // Board files are named board-<uuid>.json, so discover them dynamically.
+        let boardFileNames = (try? fm.contentsOfDirectory(atPath: storageDir.path))?
+            .filter { $0.hasPrefix("board-") && $0.hasSuffix(".json") } ?? []
+        let fileNames = boardFileNames
+            + [Self.manifestFileName, Self.legacyBoardFileName, "notes.json"]
+        for fileName in fileNames {
+            let source = storageDir.appendingPathComponent(fileName)
+            let destination = newFolder.appendingPathComponent(fileName)
+            if fm.fileExists(atPath: source.path), !fm.fileExists(atPath: destination.path) {
+                try fm.copyItem(at: source, to: destination)
+            }
         }
 
         storageDir = newFolder
-        boardFileURL = newBoardURL
-        notesFileURL = newNotesURL
+        notesFileURL = newFolder.appendingPathComponent("notes.json")
         isAccessingSecurityScope = didStartAccess
 
         UserDefaults.standard.set(newFolder.path, forKey: Self.storageFolderKey)
@@ -135,7 +169,6 @@ actor StorageService {
         UserDefaults.standard.removeObject(forKey: Self.storageFolderKey)
         UserDefaults.standard.removeObject(forKey: Self.bookmarkKey)
         storageDir = defaultDir
-        boardFileURL = defaultDir.appendingPathComponent("board.json")
         notesFileURL = defaultDir.appendingPathComponent("notes.json")
         try ensureDirectoryExists()
     }
@@ -147,23 +180,150 @@ actor StorageService {
 
     // MARK: - Board
 
-    func loadBoard() throws -> Board {
+    /// Ordered list of board ids defining positions 1...slotCount.
+    struct BoardsManifest: Codable {
+        var order: [UUID]
+        /// One-time marker that legacy default-named ("Propel") empty boards have
+        /// been cleared in this data folder. Absent in older/migrated manifests.
+        var didClearDefaultNames: Bool?
+    }
+
+    /// Minimal projection used to read a board's display name without decoding
+    /// the whole board.
+    private struct BoardNameOnly: Decodable {
+        let name: String
+    }
+
+    // MARK: Manifest
+
+    func loadManifest() -> BoardsManifest? {
+        guard let data = try? Data(contentsOf: manifestFileURL),
+              let manifest = try? decoder.decode(BoardsManifest.self, from: data) else {
+            return nil
+        }
+        return manifest
+    }
+
+    func saveManifest(_ manifest: BoardsManifest) throws {
         startAccessing()
         try ensureDirectoryExists()
-        guard FileManager.default.fileExists(atPath: boardFileURL.path) else {
-            let defaultBoard = Board()
-            try saveBoard(defaultBoard)
-            return defaultBoard
+        let data = try encoder.encode(manifest)
+        try atomicWrite(data: data, to: manifestFileURL)
+    }
+
+    // MARK: Boards
+
+    /// Load all boards in manifest order, running first-time migration when no
+    /// manifest exists yet.
+    func loadBoards() throws -> [Board] {
+        startAccessing()
+        try ensureDirectoryExists()
+
+        var manifest = try loadManifest() ?? migrateToManifest()
+        var boards: [Board] = []
+        var manifestChanged = false
+        for (index, id) in manifest.order.enumerated() {
+            if let board = try loadBoardIfPresent(id: id) {
+                boards.append(board)
+            } else {
+                // A referenced file went missing; substitute a fresh empty board.
+                let replacement = Board()
+                try saveBoard(replacement)
+                manifest.order[index] = replacement.id
+                boards.append(replacement)
+                manifestChanged = true
+            }
         }
-        let data = try Data(contentsOf: boardFileURL)
+
+        // One-time cleanup: boards created under the old default name "Propel"
+        // that are still empty (no cards) become unnamed, matching the behavior
+        // where empty boards have no name. Per-folder flag so a board the user
+        // later names "Propel" is left alone.
+        if manifest.didClearDefaultNames != true {
+            for index in boards.indices where boards[index].name == "Propel" && boards[index].cards.isEmpty {
+                boards[index].name = ""
+                try saveBoard(boards[index])
+            }
+            manifest.didClearDefaultNames = true
+            manifestChanged = true
+        }
+
+        if manifestChanged { try saveManifest(manifest) }
+        return boards
+    }
+
+    func loadBoard(id: UUID) throws -> Board {
+        let data = try Data(contentsOf: boardFileURL(id: id))
         return try decoder.decode(Board.self, from: data)
+    }
+
+    private func loadBoardIfPresent(id: UUID) throws -> Board? {
+        let url = boardFileURL(id: id)
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        return try decoder.decode(Board.self, from: try Data(contentsOf: url))
     }
 
     func saveBoard(_ board: Board) throws {
         startAccessing()
         try ensureDirectoryExists()
         let data = try encoder.encode(board)
-        try atomicWrite(data: data, to: boardFileURL)
+        try atomicWrite(data: data, to: boardFileURL(id: board.id))
+    }
+
+    func deleteBoardFile(id: UUID) {
+        try? FileManager.default.removeItem(at: boardFileURL(id: id))
+    }
+
+    /// The display name stored for a board id, or nil if the file is missing.
+    func boardName(id: UUID) -> String? {
+        guard let data = try? Data(contentsOf: boardFileURL(id: id)),
+              let summary = try? decoder.decode(BoardNameOnly.self, from: data) else {
+            return nil
+        }
+        return summary.name
+    }
+
+    /// Decode an external board file and store it as a fresh board (new id, so it
+    /// can't collide with an existing board). The caller wires it into a position.
+    func importBoard(from externalURL: URL) throws -> Board {
+        let data = try Data(contentsOf: externalURL)
+        var board = try decoder.decode(Board.self, from: data)
+        board.id = UUID()
+        try saveBoard(board)
+        return board
+    }
+
+    // MARK: Migration
+
+    /// Build the initial manifest from whatever board files already exist, then
+    /// remove the obsolete position-named / legacy files.
+    private func migrateToManifest() throws -> BoardsManifest {
+        let fm = FileManager.default
+        var boards: [Board] = []
+        var obsolete: [URL] = []
+
+        // Unreleased slot scheme: board-1/2/3.json.
+        for slot in 1...Self.slotCount {
+            let url = legacySlotFileURL(slot: slot)
+            if fm.fileExists(atPath: url.path), let board = try? decoder.decode(Board.self, from: Data(contentsOf: url)) {
+                boards.append(board)
+                obsolete.append(url)
+            }
+        }
+        // Pre-multi-board single board.json.
+        if boards.isEmpty, fm.fileExists(atPath: legacyBoardFileURL.path),
+           let board = try? decoder.decode(Board.self, from: Data(contentsOf: legacyBoardFileURL)) {
+            boards.append(board)
+            obsolete.append(legacyBoardFileURL)
+        }
+        // Pad up to slotCount with fresh empty boards.
+        while boards.count < Self.slotCount { boards.append(Board()) }
+
+        for board in boards { try saveBoard(board) }
+        let manifest = BoardsManifest(order: boards.map(\.id))
+        try saveManifest(manifest)
+        for url in obsolete { try? fm.removeItem(at: url) }
+        return manifest
     }
 
     // MARK: - Notes

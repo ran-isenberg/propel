@@ -238,6 +238,13 @@ struct CardCreationPanel: View {
             }
             .padding(16)
         }
+        .onAppear {
+            // Default to a label that actually exists on the current board, since
+            // each board has its own labels.
+            if !viewModel.board.labels.contains(where: { $0.id == labelId }) {
+                labelId = viewModel.board.sortedLabels.first?.id ?? labelId
+            }
+        }
     }
 
     private func createCard() {

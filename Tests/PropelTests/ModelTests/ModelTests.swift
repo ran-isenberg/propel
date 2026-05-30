@@ -431,6 +431,109 @@ struct CodableTests {
         #expect(decoded == board)
     }
 
+    @Test func boardDecoderInsertsMissingReadyColumnForLegacyBoard() throws {
+        let now = stableDate()
+        var board = Board(createdAt: now, updatedAt: now)
+        let completedId = try #require(board.column(for: .completed)).id
+        board.cards.append(Card(
+            title: "Done",
+            columnId: completedId,
+            labelId: LabelDefinition.blogPostId,
+            createdAt: now,
+            updatedAt: now
+        ))
+        let originalColumnIds = Dictionary(uniqueKeysWithValues: board.columns.map { ($0.status, $0.id) })
+
+        // Simulate legacy persisted data: no Ready column and no schema version.
+        let data = try encoder.encode(board)
+        guard var json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              var columns = json["columns"] as? [[String: Any]] else {
+            #expect(Bool(false), "Failed to parse board JSON")
+            return
+        }
+        columns.removeAll { ($0["status"] as? String) == ColumnStatus.ready.rawValue }
+        for index in columns.indices { columns[index]["position"] = index }
+        json["columns"] = columns
+        json.removeValue(forKey: "schemaVersion")
+        let legacyData = try JSONSerialization.data(withJSONObject: json)
+
+        let decoded = try decoder.decode(Board.self, from: legacyData)
+
+        // Ready is reinstated between Blocked and Completed, positions contiguous.
+        #expect(decoded.columns.count == 5)
+        #expect(decoded.columns.map(\.status) == ColumnStatus.defaultOrder)
+        #expect(decoded.columns[3].status == .ready)
+        #expect(decoded.columns[4].status == .completed)
+        for (index, column) in decoded.columns.enumerated() {
+            #expect(column.position == index)
+        }
+        // Pre-existing column UUIDs are preserved (no data churn).
+        for status in [ColumnStatus.backlog, .inProgress, .blocked, .completed] {
+            #expect(decoded.column(for: status)?.id == originalColumnIds[status])
+        }
+        // The card still resolves to its preserved Completed column.
+        #expect(decoded.column(for: .completed)?.id == decoded.cards[0].columnId)
+        // Legacy data decodes as schema version 0 so migrations can run.
+        #expect(decoded.schemaVersion == 0)
+    }
+
+    @Test func boardDecoderSyncsBuiltInLabelChecklistForLegacyBoard() throws {
+        let now = stableDate()
+        let board = Board(createdAt: now, updatedAt: now)
+        let data = try encoder.encode(board)
+        guard var json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              var labels = json["labels"] as? [[String: Any]] else {
+            #expect(Bool(false), "Failed to parse board JSON")
+            return
+        }
+        // Simulate an old persisted blog-post label with the pre-reorder checklist.
+        let blogId = LabelDefinition.blogPostId.uuidString
+        for index in labels.indices where (labels[index]["id"] as? String) == blogId {
+            labels[index]["defaultChecklist"] = ["PR", "Post Structure", "Merge"]
+        }
+        json["labels"] = labels
+        let legacyData = try JSONSerialization.data(withJSONObject: json)
+
+        let decoded = try decoder.decode(Board.self, from: legacyData)
+        let blogLabel = try #require(decoded.labels.first { $0.id == LabelDefinition.blogPostId })
+        let builtIn = try #require(LabelDefinition.builtInLabels.first { $0.id == LabelDefinition.blogPostId })
+        #expect(blogLabel.defaultChecklist == builtIn.defaultChecklist)
+    }
+
+    @Test func boardDecoderReseedsEmptyLabels() throws {
+        let now = stableDate()
+        let board = Board(name: "X", createdAt: now, updatedAt: now)
+        let data = try encoder.encode(board)
+        guard var json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            #expect(Bool(false), "Failed to parse board JSON")
+            return
+        }
+        // A board persisted with no labels must come back with the defaults so
+        // cards can still be created on it.
+        json["labels"] = [[String: Any]]()
+        let modified = try JSONSerialization.data(withJSONObject: json)
+
+        let decoded = try decoder.decode(Board.self, from: modified)
+
+        #expect(decoded.labels.count == LabelDefinition.builtInLabels.count)
+    }
+
+    @Test func boardDecoderColumnMigrationIsIdempotent() throws {
+        let now = stableDate()
+        let board = Board(createdAt: now, updatedAt: now)
+        let data = try encoder.encode(board)
+        let decodedOnce = try decoder.decode(Board.self, from: data)
+        #expect(decodedOnce.columns.count == 5)
+        #expect(decodedOnce.columns.map(\.status) == ColumnStatus.defaultOrder)
+
+        // Re-encoding and decoding again must not insert a duplicate Ready column.
+        let reData = try encoder.encode(decodedOnce)
+        let decodedTwice = try decoder.decode(Board.self, from: reData)
+        #expect(decodedTwice.columns.count == 5)
+        #expect(decodedTwice.columns.filter { $0.status == .ready }.count == 1)
+        #expect(decodedTwice == decodedOnce)
+    }
+
     @Test func notesStoreRoundtrip() throws {
         let now = stableDate()
         let store = NotesStore(notes: [

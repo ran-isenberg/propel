@@ -9,6 +9,7 @@ struct ContentView: View {
     @Environment(BoardViewModel.self) private var boardViewModel
     @State private var activeTab: NavigationTab = .board
     @State private var isEditingBoardName = false
+    @State private var nameDraft = ""
     @FocusState private var boardNameFocused: Bool
 
     var body: some View {
@@ -16,27 +17,27 @@ struct ContentView: View {
         VStack(spacing: 0) {
             // Top bar
             HStack {
+                BoardSwitcher()
+
+                Divider()
+                    .frame(height: 18)
+
                 if isEditingBoardName {
-                    TextField("Board Name", text: $vm.board.name)
+                    TextField("Board Name", text: $nameDraft)
                         .font(.title3.bold())
                         .textFieldStyle(.plain)
                         .fixedSize()
                         .focused($boardNameFocused)
-                        .onSubmit {
-                            isEditingBoardName = false
-                            boardViewModel.scheduleBoardSave()
-                        }
+                        .onSubmit { commitBoardName() }
                         .onChange(of: boardNameFocused) {
-                            if !boardNameFocused {
-                                isEditingBoardName = false
-                                boardViewModel.scheduleBoardSave()
-                            }
+                            if !boardNameFocused { commitBoardName() }
                         }
                 } else {
-                    Text(boardViewModel.board.name)
+                    Text(boardViewModel.board.name.isEmpty ? "Untitled" : boardViewModel.board.name)
                         .font(.title3.bold())
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(boardViewModel.board.name.isEmpty ? .secondary : .primary)
                         .onTapGesture {
+                            nameDraft = boardViewModel.board.name
                             isEditingBoardName = true
                             boardNameFocused = true
                         }
@@ -170,6 +171,16 @@ struct ContentView: View {
                 .disabled(activeTab != .board)
             }
         }
+    }
+
+    /// Commit an inline board-name edit through validation. A name colliding with
+    /// another board (case-insensitive) is rejected by the view model, leaving the
+    /// title unchanged.
+    private func commitBoardName() {
+        guard isEditingBoardName else { return }
+        isEditingBoardName = false
+        let newName = nameDraft
+        Task { await boardViewModel.renameActiveBoard(to: newName) }
     }
 
     @ViewBuilder

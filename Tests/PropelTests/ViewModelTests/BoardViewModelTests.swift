@@ -49,10 +49,10 @@ struct BoardViewModelTests {
 
     // MARK: - Clear Completed Cards
 
-    @Test func clearCompletedCardsRemovesOnlyCompletedCards() {
+    @Test func clearCompletedCardsRemovesOnlyCompletedCards() throws {
         let vm = makeViewModel()
         let backlogId = vm.board.columns[0].id
-        let completedId = vm.board.columns[4].id
+        let completedId = try #require(vm.column(for: .completed)).id
         vm.createCard(title: "Active", labelId: LabelDefinition.blogPostId, priority: .normal, inColumn: backlogId)
         vm.createCard(title: "Done 1", labelId: LabelDefinition.videoId, priority: .low, inColumn: backlogId)
         vm.createCard(title: "Done 2", labelId: LabelDefinition.podcastId, priority: .normal, inColumn: backlogId)
@@ -63,10 +63,10 @@ struct BoardViewModelTests {
         #expect(vm.board.cards[0].title == "Active")
     }
 
-    @Test func clearCompletedCardsClearsSelectedCardIfCompleted() {
+    @Test func clearCompletedCardsClearsSelectedCardIfCompleted() throws {
         let vm = makeViewModel()
         let backlogId = vm.board.columns[0].id
-        let completedId = vm.board.columns[4].id
+        let completedId = try #require(vm.column(for: .completed)).id
         vm.createCard(title: "Done", labelId: LabelDefinition.blogPostId, priority: .normal, inColumn: backlogId)
         let cardId = vm.board.cards[0].id
         vm.moveCard(cardId, toColumn: completedId)
@@ -76,10 +76,10 @@ struct BoardViewModelTests {
         #expect(vm.selectedCardId == nil)
     }
 
-    @Test func clearCompletedCardsKeepsSelectedCardIfNotCompleted() {
+    @Test func clearCompletedCardsKeepsSelectedCardIfNotCompleted() throws {
         let vm = makeViewModel()
         let backlogId = vm.board.columns[0].id
-        let completedId = vm.board.columns[4].id
+        let completedId = try #require(vm.column(for: .completed)).id
         vm.createCard(title: "Active", labelId: LabelDefinition.blogPostId, priority: .normal, inColumn: backlogId)
         vm.createCard(title: "Done", labelId: LabelDefinition.videoId, priority: .low, inColumn: backlogId)
         let activeId = vm.board.cards[0].id
@@ -139,20 +139,20 @@ struct BoardViewModelTests {
         #expect(vm.board.cards[0].updatedAt == updatedBefore)
     }
 
-    @Test func moveCardToCompletedSetsCompletedAt() {
+    @Test func moveCardToCompletedSetsCompletedAt() throws {
         let vm = makeViewModel()
         let backlogId = vm.board.columns[0].id
-        let completedId = vm.board.columns[4].id
+        let completedId = try #require(vm.column(for: .completed)).id
         vm.createCard(title: "Done", labelId: LabelDefinition.podcastId, priority: .normal, inColumn: backlogId)
         let cardId = vm.board.cards[0].id
         vm.moveCard(cardId, toColumn: completedId)
         #expect(vm.board.cards[0].completedAt != nil)
     }
 
-    @Test func moveCardOutOfCompletedClearsCompletedAt() {
+    @Test func moveCardOutOfCompletedClearsCompletedAt() throws {
         let vm = makeViewModel()
         let backlogId = vm.board.columns[0].id
-        let completedId = vm.board.columns[4].id
+        let completedId = try #require(vm.column(for: .completed)).id
         vm.createCard(title: "Reopen", labelId: LabelDefinition.blogPostId, priority: .normal, inColumn: backlogId)
         let cardId = vm.board.cards[0].id
         vm.moveCard(cardId, toColumn: completedId)
@@ -164,7 +164,7 @@ struct BoardViewModelTests {
     @Test func moveRecurringCardToCompletedCreatesNewInstance() throws {
         let vm = makeViewModel()
         let backlogId = vm.board.columns[0].id
-        let completedId = vm.board.columns[4].id
+        let completedId = try #require(vm.column(for: .completed)).id
         let card = Card(
             title: "Recurring",
             columnId: backlogId,
@@ -184,10 +184,10 @@ struct BoardViewModelTests {
         #expect(newCard.id != card.id)
     }
 
-    @Test func moveNonRecurringCardToCompletedDoesNotCreateNewInstance() {
+    @Test func moveNonRecurringCardToCompletedDoesNotCreateNewInstance() throws {
         let vm = makeViewModel()
         let backlogId = vm.board.columns[0].id
-        let completedId = vm.board.columns[4].id
+        let completedId = try #require(vm.column(for: .completed)).id
         vm.createCard(title: "One-off", labelId: LabelDefinition.blogPostId, priority: .normal, inColumn: backlogId)
         vm.moveCard(vm.board.cards[0].id, toColumn: completedId)
         #expect(vm.board.cards.count == 1)

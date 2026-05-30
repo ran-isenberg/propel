@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 import UserNotifications
 
 @main
@@ -9,7 +10,7 @@ struct PropelApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
-        WindowGroup {
+        WindowGroup(id: "main") {
             ContentView()
                 .environment(boardViewModel)
                 .environment(notesViewModel)
@@ -37,6 +38,14 @@ struct PropelApp: App {
 
                 Button("Manage Labels...") {
                     showLabelManagement = true
+                }
+
+                Menu("Import Board into Slot") {
+                    ForEach(1...BoardViewModel.slotCount, id: \.self) { slot in
+                        Button("Board \(slot)") {
+                            importBoard(intoSlot: slot)
+                        }
+                    }
                 }
 
                 Divider()
@@ -82,6 +91,33 @@ struct PropelApp: App {
         Task {
             await boardViewModel.changeStorageFolder(to: url)
             await notesViewModel.reloadFromStorage()
+        }
+    }
+
+    private func importBoard(intoSlot slot: Int) {
+        // Confirm before overwriting a slot that already holds a board.
+        if boardViewModel.slotNames[slot] != nil {
+            let alert = NSAlert()
+            alert.messageText = "Replace Board \(slot)?"
+            alert.informativeText = "Importing will overwrite the board currently in slot \(slot). This cannot be undone."
+            alert.addButton(withTitle: "Replace")
+            alert.addButton(withTitle: "Cancel")
+            guard alert.runModal() == .alertFirstButtonReturn else { return }
+        }
+
+        let panel = NSOpenPanel()
+        panel.title = "Import Board"
+        panel.message = "Choose a board JSON file to import into slot \(slot)."
+        panel.prompt = "Import"
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.json]
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        Task {
+            await boardViewModel.importBoard(from: url, intoPosition: slot)
         }
     }
 
