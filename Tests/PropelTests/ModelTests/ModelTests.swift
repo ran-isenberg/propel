@@ -9,11 +9,11 @@ struct BoardTests {
     @Test func initializesWithDefaultColumns() {
         let board = Board()
         #expect(board.columns.count == 5)
-        #expect(board.columns[0].status == .backlog)
-        #expect(board.columns[1].status == .inProgress)
-        #expect(board.columns[2].status == .blocked)
-        #expect(board.columns[3].status == .ready)
-        #expect(board.columns[4].status == .completed)
+        #expect(board.columns[0].isDefaultIntake)
+        #expect(board.columns[2].isBlockedStage)
+        #expect(board.columns[4].isDoneStage)
+        // Only the three protected roles carry capability flags.
+        #expect(board.columns.count(where: \.isProtected) == 3)
     }
 
     @Test func defaultColumnsHaveCorrectNames() {
@@ -316,16 +316,26 @@ struct LabelTests {
     }
 }
 
-// MARK: - ColumnStatus Tests
+// MARK: - Default Column Tests
 
-struct ColumnStatusTests {
-    @Test func defaultOrderHasFiveStatuses() {
-        #expect(ColumnStatus.defaultOrder.count == 5)
+struct DefaultColumnTests {
+    @Test func defaultColumnsHaveFiveColumns() {
+        #expect(Board.defaultColumns().count == 5)
     }
 
-    @Test func defaultOrderIsCorrect() {
-        let order = ColumnStatus.defaultOrder
-        #expect(order == [.backlog, .inProgress, .blocked, .ready, .completed])
+    @Test func exactlyOneColumnPerProtectedRole() {
+        let columns = Board.defaultColumns()
+        #expect(columns.count(where: \.isDefaultIntake) == 1)
+        #expect(columns.count(where: \.isBlockedStage) == 1)
+        #expect(columns.count(where: \.isDoneStage) == 1)
+    }
+
+    @Test func protectedColumnsCannotBeDeleted() {
+        let columns = Board.defaultColumns()
+        let intake = columns.first { $0.isDefaultIntake }
+        let plain = columns.first { !$0.isProtected }
+        #expect(intake?.isProtected == true)
+        #expect(plain?.isProtected == false)
     }
 }
 
@@ -369,25 +379,24 @@ struct SortFieldTests {
     }
 }
 
-// MARK: - Status Header Color Tests
+// MARK: - Stage Color Tests
 
-struct StatusHeaderColorTests {
-    @Test func eachStatusHasDistinctColor() {
-        let colors = ColumnStatus.allCases.map(\.headerColor)
-        // Just verify they exist and are accessible
-        #expect(colors.count == 5)
+struct StageColorTests {
+    @Test func eachColorResolvesToASwiftUIColor() {
+        let colors = StageColor.allCases.map(\.swiftUIColor)
+        #expect(colors.count == StageColor.allCases.count)
     }
 
-    @Test func blockedIsRed() {
-        #expect(ColumnStatus.blocked.headerColor == .red)
+    @Test func redResolvesToRed() {
+        #expect(StageColor.red.swiftUIColor == .red)
     }
 
-    @Test func completedIsGreen() {
-        #expect(ColumnStatus.completed.headerColor == .green)
+    @Test func greenResolvesToGreen() {
+        #expect(StageColor.green.swiftUIColor == .green)
     }
 
-    @Test func inProgressIsBlue() {
-        #expect(ColumnStatus.inProgress.headerColor == .blue)
+    @Test func displayNameIsCapitalized() {
+        #expect(StageColor.blue.displayName == "Blue")
     }
 }
 
@@ -431,50 +440,104 @@ struct CodableTests {
         #expect(decoded == board)
     }
 
-    @Test func boardDecoderInsertsMissingReadyColumnForLegacyBoard() throws {
+    @Test func boardDecoderMigratesLegacyStatusColumns() throws {
         let now = stableDate()
-        var board = Board(createdAt: now, updatedAt: now)
-        let completedId = try #require(board.column(for: .completed)).id
-        board.cards.append(Card(
-            title: "Done",
-            columnId: completedId,
-            labelId: LabelDefinition.blogPostId,
-            createdAt: now,
-            updatedAt: now
-        ))
-        let originalColumnIds = Dictionary(uniqueKeysWithValues: board.columns.map { ($0.status, $0.id) })
+        // Simulate a board persisted before columns became user-editable: each
+        // column carries a fixed `status` string and none of the new fields.
+        let backlogId = UUID()
+        let blockedId = UUID()
+        let completedId = UUID()
+        let legacyColumns: [[String: Any]] = [
+            [
+                "id": backlogId.uuidString,
+                "name": "Backlog",
+                "status": "Backlog",
+                "position": 0,
+                "sortBy": ["priority"],
+                "sortDirection": "ascending"
+            ],
+            [
+                "id": UUID().uuidString,
+                "name": "In Progress",
+                "status": "In Progress",
+                "position": 1,
+                "sortBy": ["priority"],
+                "sortDirection": "ascending"
+            ],
+            [
+                "id": blockedId.uuidString,
+                "name": "Blocked",
+                "status": "Blocked",
+                "position": 2,
+                "sortBy": ["priority"],
+                "sortDirection": "ascending"
+            ],
+            [
+                "id": completedId.uuidString,
+                "name": "Completed",
+                "status": "Completed",
+                "position": 3,
+                "sortBy": ["priority"],
+                "sortDirection": "ascending"
+            ]
+        ]
+        let card = Card(title: "Done", columnId: completedId, labelId: LabelDefinition.blogPostId, createdAt: now, updatedAt: now)
+        let cardData = try encoder.encode(card)
+        let cardJSON = try JSONSerialization.jsonObject(with: cardData)
 
-        // Simulate legacy persisted data: no Ready column and no schema version.
-        let data = try encoder.encode(board)
-        guard var json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              var columns = json["columns"] as? [[String: Any]] else {
-            #expect(Bool(false), "Failed to parse board JSON")
-            return
-        }
-        columns.removeAll { ($0["status"] as? String) == ColumnStatus.ready.rawValue }
-        for index in columns.indices { columns[index]["position"] = index }
-        json["columns"] = columns
-        json.removeValue(forKey: "schemaVersion")
+        let json: [String: Any] = [
+            "id": UUID().uuidString,
+            "name": "Legacy",
+            "columns": legacyColumns,
+            "cards": [cardJSON],
+            "createdAt": ISO8601DateFormatter().string(from: now),
+            "updatedAt": ISO8601DateFormatter().string(from: now)
+        ]
         let legacyData = try JSONSerialization.data(withJSONObject: json)
 
         let decoded = try decoder.decode(Board.self, from: legacyData)
 
-        // Ready is reinstated between Blocked and Completed, positions contiguous.
-        #expect(decoded.columns.count == 5)
-        #expect(decoded.columns.map(\.status) == ColumnStatus.defaultOrder)
-        #expect(decoded.columns[3].status == .ready)
-        #expect(decoded.columns[4].status == .completed)
+        // Legacy statuses map onto the new capability flags.
+        #expect(decoded.column(for: .intake)?.id == backlogId)
+        #expect(decoded.column(for: .blocked)?.id == blockedId)
+        #expect(decoded.column(for: .done)?.id == completedId)
+        // Icons/colors are backfilled from the legacy status.
+        #expect(decoded.column(for: .done)?.color == .green)
+        // Positions are contiguous and the card still resolves to its done column.
         for (index, column) in decoded.columns.enumerated() {
             #expect(column.position == index)
         }
-        // Pre-existing column UUIDs are preserved (no data churn).
-        for status in [ColumnStatus.backlog, .inProgress, .blocked, .completed] {
-            #expect(decoded.column(for: status)?.id == originalColumnIds[status])
-        }
-        // The card still resolves to its preserved Completed column.
-        #expect(decoded.column(for: .completed)?.id == decoded.cards[0].columnId)
+        #expect(decoded.column(for: .done)?.id == decoded.cards[0].columnId)
         // Legacy data decodes as schema version 0 so migrations can run.
         #expect(decoded.schemaVersion == 0)
+    }
+
+    @Test func boardDecoderReseedsMissingProtectedRoles() throws {
+        let now = stableDate()
+        // A legacy board with only a backlog column must gain blocked + done.
+        let legacyColumns: [[String: Any]] = [
+            [
+                "id": UUID().uuidString,
+                "name": "Backlog",
+                "status": "Backlog",
+                "position": 0,
+                "sortBy": ["priority"],
+                "sortDirection": "ascending"
+            ]
+        ]
+        let json: [String: Any] = [
+            "id": UUID().uuidString,
+            "name": "Sparse",
+            "columns": legacyColumns,
+            "cards": [[String: Any]](),
+            "createdAt": ISO8601DateFormatter().string(from: now),
+            "updatedAt": ISO8601DateFormatter().string(from: now)
+        ]
+        let decoded = try decoder.decode(Board.self, from: JSONSerialization.data(withJSONObject: json))
+
+        #expect(decoded.column(for: .intake) != nil)
+        #expect(decoded.column(for: .blocked) != nil)
+        #expect(decoded.column(for: .done) != nil)
     }
 
     @Test func boardDecoderSyncsBuiltInLabelChecklistForLegacyBoard() throws {
@@ -482,7 +545,8 @@ struct CodableTests {
         let board = Board(createdAt: now, updatedAt: now)
         let data = try encoder.encode(board)
         guard var json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              var labels = json["labels"] as? [[String: Any]] else {
+              var labels = json["labels"] as? [[String: Any]]
+        else {
             #expect(Bool(false), "Failed to parse board JSON")
             return
         }
@@ -524,13 +588,14 @@ struct CodableTests {
         let data = try encoder.encode(board)
         let decodedOnce = try decoder.decode(Board.self, from: data)
         #expect(decodedOnce.columns.count == 5)
-        #expect(decodedOnce.columns.map(\.status) == ColumnStatus.defaultOrder)
+        #expect(decodedOnce.columns.count(where: \.isProtected) == 3)
 
-        // Re-encoding and decoding again must not insert a duplicate Ready column.
+        // Re-encoding and decoding again must not duplicate any protected role.
         let reData = try encoder.encode(decodedOnce)
         let decodedTwice = try decoder.decode(Board.self, from: reData)
         #expect(decodedTwice.columns.count == 5)
-        #expect(decodedTwice.columns.filter { $0.status == .ready }.count == 1)
+        #expect(decodedTwice.columns.count(where: \.isDoneStage) == 1)
+        #expect(decodedTwice.columns.count(where: \.isDefaultIntake) == 1)
         #expect(decodedTwice == decodedOnce)
     }
 

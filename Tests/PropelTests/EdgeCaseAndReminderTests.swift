@@ -105,7 +105,7 @@ struct EdgeCaseTests {
         )
         card.checklist = [
             ChecklistItem(title: "PR", isCompleted: true, position: 0),
-            ChecklistItem(title: "Custom Step", position: 1),
+            ChecklistItem(title: "Custom Step", position: 1)
         ]
         board.cards.append(card)
         await MainActor.run { vm.board = board }
@@ -115,7 +115,7 @@ struct EdgeCaseTests {
         let updated = await vm.board.cards[0]
         let titles = updated.checklist.map(\.title)
         // PR already existed, should not duplicate
-        #expect(titles.filter { $0 == "PR" }.count == 1)
+        #expect(titles.count(where: { $0 == "PR" }) == 1)
         // Custom step preserved
         #expect(titles.contains("Custom Step"))
         // Missing defaults added
@@ -143,7 +143,8 @@ struct EdgeCaseTests {
                data: data,
                options: [.documentType: NSAttributedString.DocumentType.rtf],
                documentAttributes: nil
-           ) {
+           )
+        {
             #expect(restored.string == "Hello World")
         } else {
             #expect(Bool(false), "Failed to restore RTF data")
@@ -197,7 +198,7 @@ struct EdgeCaseTests {
     @Test func recurrenceRuleSafeIntervalClamping() {
         #expect(RecurrenceRule(interval: 0, frequency: .weekly).safeInterval >= 1)
         #expect(RecurrenceRule(interval: -5, frequency: .daily).safeInterval >= 1)
-        #expect(RecurrenceRule(interval: 5000, frequency: .monthly).safeInterval <= 999)
+        #expect(RecurrenceRule(interval: 5_000, frequency: .monthly).safeInterval <= 999)
     }
 
     // MARK: - Card Toggle Blocked
@@ -226,7 +227,7 @@ struct EdgeCaseTests {
     @Test func autoArchiveWithZeroDaysShowsAllCompleted() async throws {
         let vm = await Self.makeViewModel()
         var board = Board()
-        let completedColumn = try #require(board.column(for: .completed))
+        let completedColumn = try #require(board.column(for: .done))
         let completedId = completedColumn.id
         var card = Card(title: "Old Done", columnId: completedId, labelId: LabelDefinition.blogPostId)
         card.completedAt = Calendar.current.date(byAdding: .day, value: -30, to: Date())
@@ -247,7 +248,9 @@ struct EdgeCaseTests {
         #expect(String(longTitle.prefix(500)).count == 500)
 
         var items: [ChecklistItem] = []
-        for idx in 0..<100 { items.append(ChecklistItem(title: "Item \(idx)", position: idx)) }
+        for idx in 0 ..< 100 {
+            items.append(ChecklistItem(title: "Item \(idx)", position: idx))
+        }
         #expect(items.count == 100)
         #expect((items.count < 100) == false)
 
@@ -267,7 +270,7 @@ struct EdgeCaseTests {
 
         let checklist = [
             ChecklistItem(title: "A", isCompleted: true, position: 0),
-            ChecklistItem(title: "B", isCompleted: false, position: 1),
+            ChecklistItem(title: "B", isCompleted: false, position: 1)
         ]
         let progress = checklist.isEmpty ? 0 : Double(checklist.filter(\.isCompleted).count) / Double(checklist.count)
         #expect(progress == 0.5)
@@ -353,7 +356,7 @@ struct ReminderCardTests {
     }
 
     @Test func reminderFireDateCalculation() {
-        let dueDate = Date().addingTimeInterval(7200)
+        let dueDate = Date().addingTimeInterval(7_200)
         let fireDate = dueDate.addingTimeInterval(ReminderOffset.oneHour.offsetSeconds)
         #expect(fireDate < dueDate)
         #expect(fireDate > Date())

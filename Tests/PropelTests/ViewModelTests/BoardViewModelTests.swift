@@ -52,7 +52,7 @@ struct BoardViewModelTests {
     @Test func clearCompletedCardsRemovesOnlyCompletedCards() throws {
         let vm = makeViewModel()
         let backlogId = vm.board.columns[0].id
-        let completedId = try #require(vm.column(for: .completed)).id
+        let completedId = try #require(vm.column(for: .done)).id
         vm.createCard(title: "Active", labelId: LabelDefinition.blogPostId, priority: .normal, inColumn: backlogId)
         vm.createCard(title: "Done 1", labelId: LabelDefinition.videoId, priority: .low, inColumn: backlogId)
         vm.createCard(title: "Done 2", labelId: LabelDefinition.podcastId, priority: .normal, inColumn: backlogId)
@@ -66,7 +66,7 @@ struct BoardViewModelTests {
     @Test func clearCompletedCardsClearsSelectedCardIfCompleted() throws {
         let vm = makeViewModel()
         let backlogId = vm.board.columns[0].id
-        let completedId = try #require(vm.column(for: .completed)).id
+        let completedId = try #require(vm.column(for: .done)).id
         vm.createCard(title: "Done", labelId: LabelDefinition.blogPostId, priority: .normal, inColumn: backlogId)
         let cardId = vm.board.cards[0].id
         vm.moveCard(cardId, toColumn: completedId)
@@ -79,7 +79,7 @@ struct BoardViewModelTests {
     @Test func clearCompletedCardsKeepsSelectedCardIfNotCompleted() throws {
         let vm = makeViewModel()
         let backlogId = vm.board.columns[0].id
-        let completedId = try #require(vm.column(for: .completed)).id
+        let completedId = try #require(vm.column(for: .done)).id
         vm.createCard(title: "Active", labelId: LabelDefinition.blogPostId, priority: .normal, inColumn: backlogId)
         vm.createCard(title: "Done", labelId: LabelDefinition.videoId, priority: .low, inColumn: backlogId)
         let activeId = vm.board.cards[0].id
@@ -142,7 +142,7 @@ struct BoardViewModelTests {
     @Test func moveCardToCompletedSetsCompletedAt() throws {
         let vm = makeViewModel()
         let backlogId = vm.board.columns[0].id
-        let completedId = try #require(vm.column(for: .completed)).id
+        let completedId = try #require(vm.column(for: .done)).id
         vm.createCard(title: "Done", labelId: LabelDefinition.podcastId, priority: .normal, inColumn: backlogId)
         let cardId = vm.board.cards[0].id
         vm.moveCard(cardId, toColumn: completedId)
@@ -152,7 +152,7 @@ struct BoardViewModelTests {
     @Test func moveCardOutOfCompletedClearsCompletedAt() throws {
         let vm = makeViewModel()
         let backlogId = vm.board.columns[0].id
-        let completedId = try #require(vm.column(for: .completed)).id
+        let completedId = try #require(vm.column(for: .done)).id
         vm.createCard(title: "Reopen", labelId: LabelDefinition.blogPostId, priority: .normal, inColumn: backlogId)
         let cardId = vm.board.cards[0].id
         vm.moveCard(cardId, toColumn: completedId)
@@ -164,7 +164,7 @@ struct BoardViewModelTests {
     @Test func moveRecurringCardToCompletedCreatesNewInstance() throws {
         let vm = makeViewModel()
         let backlogId = vm.board.columns[0].id
-        let completedId = try #require(vm.column(for: .completed)).id
+        let completedId = try #require(vm.column(for: .done)).id
         let card = Card(
             title: "Recurring",
             columnId: backlogId,
@@ -187,7 +187,7 @@ struct BoardViewModelTests {
     @Test func moveNonRecurringCardToCompletedDoesNotCreateNewInstance() throws {
         let vm = makeViewModel()
         let backlogId = vm.board.columns[0].id
-        let completedId = try #require(vm.column(for: .completed)).id
+        let completedId = try #require(vm.column(for: .done)).id
         vm.createCard(title: "One-off", labelId: LabelDefinition.blogPostId, priority: .normal, inColumn: backlogId)
         vm.moveCard(vm.board.cards[0].id, toColumn: completedId)
         #expect(vm.board.cards.count == 1)
@@ -271,13 +271,14 @@ struct BoardViewModelTests {
         }
     }
 
-    @Test func columnForStatusFindsCorrectColumn() {
+    @Test func columnForRoleFindsCorrectColumn() {
         let vm = makeViewModel()
-        #expect(vm.column(for: .backlog)?.status == .backlog)
-        #expect(vm.column(for: .inProgress)?.status == .inProgress)
-        #expect(vm.column(for: .blocked)?.status == .blocked)
-        #expect(vm.column(for: .ready)?.status == .ready)
-        #expect(vm.column(for: .completed)?.status == .completed)
+        #expect(vm.column(for: .intake)?.name == "Backlog")
+        #expect(vm.column(for: .intake)?.isDefaultIntake == true)
+        #expect(vm.column(for: .blocked)?.name == "Blocked")
+        #expect(vm.column(for: .blocked)?.isBlockedStage == true)
+        #expect(vm.column(for: .done)?.name == "Completed")
+        #expect(vm.column(for: .done)?.isDoneStage == true)
     }
 
     @Test func sidePanelStateManagement() {
@@ -333,7 +334,7 @@ struct BoardViewModelTests {
             ("Video", LabelDefinition.videoId),
             ("Podcast", LabelDefinition.podcastId),
             ("Code", LabelDefinition.codeId),
-            ("Article", LabelDefinition.articleId),
+            ("Article", LabelDefinition.articleId)
         ]
         for (name, id) in nonBlogLabelIds {
             vm.createCard(title: "\(name) task", labelId: id, priority: .normal, inColumn: colId)
@@ -357,14 +358,16 @@ struct BoardViewModelTests {
         card.checklist = [
             ChecklistItem(title: "A", position: 0),
             ChecklistItem(title: "B", position: 1),
-            ChecklistItem(title: "C", position: 2),
+            ChecklistItem(title: "C", position: 2)
         ]
         vm.updateCard(card)
         // Simulate reorder: move C (index 2) to index 0
         card = vm.board.cards[0]
         let moved = card.checklist.remove(at: 2)
         card.checklist.insert(moved, at: 0)
-        for i in card.checklist.indices { card.checklist[i].position = i }
+        for i in card.checklist.indices {
+            card.checklist[i].position = i
+        }
         vm.updateCard(card)
         #expect(vm.board.cards[0].checklist.map(\.title) == ["C", "A", "B"])
         #expect(vm.board.cards[0].checklist.map(\.position) == [0, 1, 2])
@@ -377,14 +380,16 @@ struct BoardViewModelTests {
         var card = vm.board.cards[0]
         card.checklist = [
             ChecklistItem(title: "Done", isCompleted: true, position: 0),
-            ChecklistItem(title: "Pending", isCompleted: false, position: 1),
+            ChecklistItem(title: "Pending", isCompleted: false, position: 1)
         ]
         vm.updateCard(card)
         // Swap order
         card = vm.board.cards[0]
         let moved = card.checklist.remove(at: 1)
         card.checklist.insert(moved, at: 0)
-        for i in card.checklist.indices { card.checklist[i].position = i }
+        for i in card.checklist.indices {
+            card.checklist[i].position = i
+        }
         vm.updateCard(card)
         #expect(vm.board.cards[0].checklist[0].title == "Pending")
         #expect(vm.board.cards[0].checklist[0].isCompleted == false)

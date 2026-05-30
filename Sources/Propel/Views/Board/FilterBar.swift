@@ -4,6 +4,7 @@ struct FilterBar: View {
     @Environment(BoardViewModel.self) private var viewModel
     @State private var showWeeklyReview = false
     @State private var showLabelManagement = false
+    @State private var showColumnEditor = false
 
     var body: some View {
         @Bindable var vm = viewModel
@@ -68,6 +69,27 @@ struct FilterBar: View {
                     .environment(viewModel)
             }
 
+            // Manage Columns button
+            Button {
+                showColumnEditor = true
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "square.3.layers.3d")
+                    Text("Manage Columns")
+                }
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 4)
+                .padding(.vertical, 3)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Manage Columns")
+            .sheet(isPresented: $showColumnEditor) {
+                ColumnEditorView()
+                    .environment(viewModel)
+            }
+
             // Weekly Review button
             Button {
                 showWeeklyReview = true
@@ -78,6 +100,9 @@ struct FilterBar: View {
                 }
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+                .padding(.horizontal, 4)
+                .padding(.vertical, 3)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .help("Weekly Review")

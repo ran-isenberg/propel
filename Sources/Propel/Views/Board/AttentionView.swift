@@ -20,6 +20,8 @@ struct AttentionView: View {
                     Image(systemName: "xmark")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .frame(width: 24, height: 24)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
@@ -67,7 +69,7 @@ struct AttentionCardView: View {
     }
 
     private var isBlocked: Bool {
-        guard let blockedColumn = viewModel.column(for: .blocked) else { return false }
+        guard let blockedColumn = viewModel.blockedColumn else { return false }
         return card.columnId == blockedColumn.id
     }
 

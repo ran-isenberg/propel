@@ -41,7 +41,7 @@ struct PropelApp: App {
                 }
 
                 Menu("Import Board into Slot") {
-                    ForEach(1...BoardViewModel.slotCount, id: \.self) { slot in
+                    ForEach(1 ... BoardViewModel.slotCount, id: \.self) { slot in
                         Button("Board \(slot)") {
                             importBoard(intoSlot: slot)
                         }
@@ -183,8 +183,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     private func quickCapture() {
         guard let vm = boardViewModel else { return }
         NSApp.activate(ignoringOtherApps: true)
-        if let backlog = vm.column(for: .backlog) {
-            vm.startCreatingCard(inColumn: backlog.id)
+        if let intake = vm.intakeColumn {
+            vm.startCreatingCard(inColumn: intake.id)
         }
     }
 }

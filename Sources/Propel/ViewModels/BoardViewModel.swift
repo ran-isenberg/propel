@@ -26,8 +26,10 @@ final class BoardViewModel {
     /// Display names for each position (1-based), empty/unnamed positions omitted.
     private(set) var slotNames: [Int: String] = [:]
 
-    /// Card counts per status summed across all boards (for the menu bar summary).
-    private(set) var aggregateStatusCounts: [ColumnStatus: Int] = [:]
+    /// Card counts per workflow role summed across all boards (for the menu bar
+    /// summary). Columns are user-defined per board, so the summary groups by
+    /// role rather than by individual column.
+    private(set) var aggregateRoleCounts = AggregateRoleCounts()
     /// Overdue cards summed across all boards.
     private(set) var aggregateOverdueCount: Int = 0
 
@@ -125,9 +127,14 @@ final class BoardViewModel {
         board.columns.sorted { $0.position < $1.position }
     }
 
-    func column(for status: ColumnStatus) -> Column? {
-        board.column(for: status)
+    /// The column fulfilling a special workflow role on the active board.
+    func column(for role: ColumnRole) -> Column? {
+        board.column(for: role)
     }
+
+    var intakeColumn: Column? { board.column(for: .intake) }
+    var blockedColumn: Column? { board.column(for: .blocked) }
+    var doneColumn: Column? { board.column(for: .done) }
 
     func cardsForColumn(_ column: Column) -> [Card] {
         var cards = board.cardsForColumn(column)
@@ -144,7 +151,7 @@ final class BoardViewModel {
             }
         }
         // Auto-archive: hide completed cards older than N days
-        if autoArchiveDays > 0, column.status == .completed {
+        if autoArchiveDays > 0, column.isDoneStage {
             let cutoff = Calendar.current.date(byAdding: .day, value: -autoArchiveDays, to: Date()) ?? Date()
             cards = cards.filter { card in
                 guard let completedAt = card.completedAt else { return true }
@@ -207,8 +214,8 @@ final class BoardViewModel {
 
         return board.cards.filter { card in
             // Exclude completed cards
-            if let completedColumn = column(for: .completed),
-               card.columnId == completedColumn.id
+            if let doneColumn = column(for: .done),
+               card.columnId == doneColumn.id
             {
                 return false
             }
@@ -233,8 +240,8 @@ final class BoardViewModel {
         let now = Date()
         return board.cards.count(where: { card in
             guard let due = card.dueDate else { return false }
-            if let completedColumn = column(for: .completed),
-               card.columnId == completedColumn.id { return false }
+            if let doneColumn = column(for: .done),
+               card.columnId == doneColumn.id { return false }
             return due < now
         })
     }
@@ -258,16 +265,17 @@ final class BoardViewModel {
 
         let createdThisWeek = board.cards.filter { $0.createdAt >= weekAgo }
 
-        let inProgressCards: [Card] = if let inProgressColumn = column(for: .inProgress) {
-            board.cards.filter { $0.columnId == inProgressColumn.id }
-        } else {
-            []
-        }
+        // "In progress" = cards in any active working column, i.e. not intake,
+        // not blocked, and not done.
+        let activeColumnIds = Set(
+            board.columns.filter { !$0.isDefaultIntake && !$0.isBlockedStage && !$0.isDoneStage }.map(\.id)
+        )
+        let inProgressCards = board.cards.filter { activeColumnIds.contains($0.columnId) }
 
         let overdueCards = board.cards.filter { card in
             guard let due = card.dueDate else { return false }
-            if let completedColumn = column(for: .completed),
-               card.columnId == completedColumn.id { return false }
+            if let doneColumn = column(for: .done),
+               card.columnId == doneColumn.id { return false }
             return due < now
         }
 
@@ -312,7 +320,7 @@ final class BoardViewModel {
     func refreshDeliveredNotificationCount() async {
         guard Self.isRunningInApp else { return }
         let delivered = await UNUserNotificationCenter.current().deliveredNotifications()
-        let reminderCount = delivered.filter { $0.request.identifier.hasPrefix("reminder-") }.count
+        let reminderCount = delivered.count(where: { $0.request.identifier.hasPrefix("reminder-") })
         deliveredReminderCount = reminderCount
     }
 
@@ -327,8 +335,8 @@ final class BoardViewModel {
         for card in board.cards {
             guard let dueDate = card.dueDate else { continue }
             // Skip completed cards
-            if let completedColumn = column(for: .completed),
-               card.columnId == completedColumn.id { continue }
+            if let doneColumn = column(for: .done),
+               card.columnId == doneColumn.id { continue }
             // Skip cards with user-configured reminders (handled by scheduleReminder)
             if card.reminder != .none { continue }
 
@@ -519,7 +527,7 @@ final class BoardViewModel {
     }
 
     func clearCompletedCards() {
-        guard let col = column(for: .completed) else { return }
+        guard let col = column(for: .done) else { return }
         let ids = Set(board.cards.filter { $0.columnId == col.id }.map(\.id))
         ids.forEach { cancelReminder(for: $0) }
         board.cards.removeAll { ids.contains($0.id) }
@@ -531,7 +539,8 @@ final class BoardViewModel {
         guard let original = board.cards.first(where: { $0.id == cardId }) else { return }
         var copy = original
         copy.id = UUID()
-        copy.createdAt = Date(); copy.updatedAt = Date()
+        copy.createdAt = Date()
+        copy.updatedAt = Date()
         copy.completedAt = nil
         copy.checklist = original.checklist.map {
             ChecklistItem(id: UUID(), title: $0.title, isCompleted: false, position: $0.position)
@@ -552,17 +561,17 @@ final class BoardViewModel {
         board.cards[index].columnId = targetColumnId
         board.cards[index].updatedAt = Date()
 
-        // Check if moving to Completed column
+        // Check if moving to the done column
         if let targetColumn = board.columns.first(where: { $0.id == targetColumnId }),
-           targetColumn.status == .completed
+           targetColumn.isDoneStage
         {
             board.cards[index].completedAt = Date()
             cancelReminder(for: cardId)
             handleRecurringTaskCompletion(board.cards[index])
         } else {
-            // If moving out of Completed, clear completedAt
+            // If moving out of the done column, clear completedAt
             if let previousColumn = board.columns.first(where: { $0.id == previousColumnId }),
-               previousColumn.status == .completed
+               previousColumn.isDoneStage
             {
                 board.cards[index].completedAt = nil
             }
@@ -572,8 +581,8 @@ final class BoardViewModel {
     }
 
     private func handleRecurringTaskCompletion(_ card: Card) {
-        guard let backlogColumn = column(for: .backlog),
-              let newCard = card.createRecurringInstance(inColumn: backlogColumn.id)
+        guard let intakeColumn = column(for: .intake),
+              let newCard = card.createRecurringInstance(inColumn: intakeColumn.id)
         else {
             return
         }
@@ -607,16 +616,15 @@ final class BoardViewModel {
     func toggleCardBlocked(_ cardId: UUID) {
         guard let index = board.cards.firstIndex(where: { $0.id == cardId }) else { return }
         let card = board.cards[index]
-        if let blockedColumn = column(for: .blocked),
-           let inProgressColumn = column(for: .inProgress)
-        {
-            if card.columnId == blockedColumn.id {
-                // Unblock: move to In Progress
-                moveCard(cardId, toColumn: inProgressColumn.id)
-            } else {
-                // Block: move to Blocked
-                moveCard(cardId, toColumn: blockedColumn.id)
-            }
+        guard let blockedColumn = column(for: .blocked) else { return }
+
+        if card.columnId == blockedColumn.id {
+            // Unblock: move to the first active working column, falling back to intake.
+            let destination = sortedColumns.first { !$0.isProtected } ?? column(for: .intake)
+            if let destination { moveCard(cardId, toColumn: destination.id) }
+        } else {
+            // Block: move to the Blocked column.
+            moveCard(cardId, toColumn: blockedColumn.id)
         }
     }
 
@@ -691,6 +699,14 @@ struct WeeklyReviewData {
     let totalCards: Int
 }
 
+/// Card counts grouped by workflow role, summed across all boards.
+struct AggregateRoleCounts: Equatable {
+    var intake = 0
+    var active = 0
+    var blocked = 0
+    var done = 0
+}
+
 // MARK: - Board Slots
 
 extension BoardViewModel {
@@ -705,16 +721,18 @@ extension BoardViewModel {
         let defaults = UserDefaults.standard
         // One-time migration from the position-based key.
         if defaults.string(forKey: Self.activeBoardIdKey) == nil,
-           defaults.object(forKey: Self.legacyActiveSlotKey) != nil {
+           defaults.object(forKey: Self.legacyActiveSlotKey) != nil
+        {
             let slot = defaults.integer(forKey: Self.legacyActiveSlotKey)
-            if (1...boardOrder.count).contains(slot) {
+            if (1 ... boardOrder.count).contains(slot) {
                 defaults.set(boardOrder[slot - 1].uuidString, forKey: Self.activeBoardIdKey)
             }
             defaults.removeObject(forKey: Self.legacyActiveSlotKey)
         }
 
         if let stored = defaults.string(forKey: Self.activeBoardIdKey),
-           let id = UUID(uuidString: stored), boardOrder.contains(id) {
+           let id = UUID(uuidString: stored), boardOrder.contains(id)
+        {
             activeBoardId = id
         } else {
             activeBoardId = boardOrder.first
@@ -757,23 +775,32 @@ extension BoardViewModel {
     /// Recompute the menu-bar summary across all boards. The active board is read
     /// from memory; the others are loaded from disk.
     func refreshBoardsSummary() async {
-        var counts: [ColumnStatus: Int] = [:]
+        var counts = AggregateRoleCounts()
         var overdue = 0
         for id in boardOrder {
-            let summaryBoard: Board? = (id == activeBoardId) ? board : (try? await storage.loadBoard(id: id))
+            let summaryBoard: Board? = await (id == activeBoardId) ? board : (try? storage.loadBoard(id: id))
             guard let summaryBoard else { continue }
-            for status in ColumnStatus.allCases {
-                counts[status, default: 0] += summaryBoard.cardCount(for: status)
+            for column in summaryBoard.columns {
+                let cardCount = summaryBoard.cards.count(where: { $0.columnId == column.id })
+                if column.isDefaultIntake {
+                    counts.intake += cardCount
+                } else if column.isBlockedStage {
+                    counts.blocked += cardCount
+                } else if column.isDoneStage {
+                    counts.done += cardCount
+                } else {
+                    counts.active += cardCount
+                }
             }
             overdue += summaryBoard.overdueCardCount
         }
-        aggregateStatusCounts = counts
+        aggregateRoleCounts = counts
         aggregateOverdueCount = overdue
     }
 
     /// The board id at a 1-based position, if any.
     private func boardId(atPosition position: Int) -> UUID? {
-        guard (1...boardOrder.count).contains(position) else { return nil }
+        guard (1 ... boardOrder.count).contains(position) else { return nil }
         return boardOrder[position - 1]
     }
 
@@ -798,7 +825,7 @@ extension BoardViewModel {
     /// Reorder by swapping two positions. The active board is untouched, so it
     /// stays selected and its highlighted button simply moves.
     func swapPositions(_ a: Int, _ b: Int) async {
-        guard a != b, (1...boardOrder.count).contains(a), (1...boardOrder.count).contains(b) else { return }
+        guard a != b, (1 ... boardOrder.count).contains(a), (1 ... boardOrder.count).contains(b) else { return }
         boardOrder.swapAt(a - 1, b - 1)
         do {
             try await storage.saveManifest(StorageService.BoardsManifest(order: boardOrder))
@@ -815,7 +842,7 @@ extension BoardViewModel {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return true }
         for other in boardOrder where other != id {
-            let existing = other == activeBoardId ? board.name : (await storage.boardName(id: other) ?? "")
+            let existing = await other == activeBoardId ? board.name : (storage.boardName(id: other) ?? "")
             if existing.caseInsensitiveCompare(trimmed) == .orderedSame { return false }
         }
         return true
@@ -936,5 +963,82 @@ extension BoardViewModel {
         guard canDeleteLabel(labelId) else { return }
         board.labels.removeAll { $0.id == labelId }
         scheduleSave()
+    }
+}
+
+// MARK: - Column Management
+
+extension BoardViewModel {
+    /// Add a new plain working column just before the done column and return its id.
+    @discardableResult
+    func addColumn() -> UUID {
+        let doneIndex = sortedColumns.firstIndex(where: \.isDoneStage) ?? board.columns.count
+        let new = Column(name: "New Column", icon: "circle.dotted", color: .slate, position: doneIndex)
+        var columns = sortedColumns
+        columns.insert(new, at: min(doneIndex, columns.count))
+        reindex(&columns)
+        board.columns = columns
+        scheduleSave()
+        return new.id
+    }
+
+    /// Persist edits to an existing column (name, icon, color, sort). Protected
+    /// role flags are preserved from the stored column and cannot be changed here.
+    func updateColumn(_ column: Column) {
+        guard let index = board.columns.firstIndex(where: { $0.id == column.id }) else { return }
+        var updated = column
+        updated.isDefaultIntake = board.columns[index].isDefaultIntake
+        updated.isBlockedStage = board.columns[index].isBlockedStage
+        updated.isDoneStage = board.columns[index].isDoneStage
+        board.columns[index] = updated
+        scheduleSave()
+    }
+
+    /// Reorder columns by SwiftUI move semantics, then renumber positions.
+    func moveColumns(fromOffsets source: IndexSet, toOffset destination: Int) {
+        var columns = sortedColumns
+        columns.move(fromOffsets: source, toOffset: destination)
+        reindex(&columns)
+        board.columns = columns
+        scheduleSave()
+    }
+
+    /// Protected columns (intake / blocked / done) cannot be deleted.
+    func canDeleteColumn(_ columnId: UUID) -> Bool {
+        guard let column = board.columns.first(where: { $0.id == columnId }) else { return false }
+        return !column.isProtected
+    }
+
+    /// Columns that can receive cards from a column being deleted.
+    func availableReplacementColumns(excluding columnId: UUID) -> [Column] {
+        sortedColumns.filter { $0.id != columnId }
+    }
+
+    /// Delete a non-protected column, moving its cards to `replacementColumnId`.
+    func deleteColumn(_ columnId: UUID, replacementColumnId: UUID) {
+        guard canDeleteColumn(columnId),
+              board.columns.contains(where: { $0.id == replacementColumnId })
+        else { return }
+
+        let movingToDone = board.columns.first(where: { $0.id == replacementColumnId })?.isDoneStage ?? false
+        for index in board.cards.indices where board.cards[index].columnId == columnId {
+            board.cards[index].columnId = replacementColumnId
+            board.cards[index].updatedAt = Date()
+            if movingToDone, board.cards[index].completedAt == nil {
+                board.cards[index].completedAt = Date()
+            }
+        }
+
+        var columns = sortedColumns.filter { $0.id != columnId }
+        reindex(&columns)
+        board.columns = columns
+        collapsedColumnIds.remove(columnId)
+        scheduleSave()
+    }
+
+    private func reindex(_ columns: inout [Column]) {
+        for i in columns.indices {
+            columns[i].position = i
+        }
     }
 }

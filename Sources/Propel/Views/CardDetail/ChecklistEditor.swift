@@ -56,6 +56,8 @@ struct ChecklistEditor: View {
                     } label: {
                         Image(systemName: item.isCompleted ? "checkmark.square.fill" : "square")
                             .foregroundStyle(item.isCompleted ? .green : .secondary)
+                            .frame(width: 24, height: 24)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
 
@@ -74,6 +76,8 @@ struct ChecklistEditor: View {
                         Image(systemName: "xmark")
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                            .frame(width: 24, height: 24)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .opacity(0.5)

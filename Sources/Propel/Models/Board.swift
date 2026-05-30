@@ -3,30 +3,116 @@ import Foundation
 struct Column: Codable, Identifiable, Equatable, Sendable {
     var id: UUID
     var name: String
-    var status: ColumnStatus
+    var icon: String
+    var color: StageColor
     var sortBy: [SortField]
     var sortDirection: SortDirection
     var position: Int
+    /// New cards (manual quick-add and recurring instances) land in this column.
+    var isDefaultIntake: Bool
+    /// Cards here surface in the attention list and the blocked count.
+    var isBlockedStage: Bool
+    /// Cards here are considered complete: `completedAt` is set, they are
+    /// auto-archived, and excluded from overdue counts.
+    var isDoneStage: Bool
 
     enum SortDirection: String, Codable, Sendable {
         case ascending
         case descending
     }
 
+    /// A column that carries one of the three special workflow roles cannot be
+    /// deleted, so the board always has an intake, a blocked, and a done column.
+    var isProtected: Bool { isDefaultIntake || isBlockedStage || isDoneStage }
+
     init(
         id: UUID = UUID(),
         name: String,
-        status: ColumnStatus,
+        icon: String = "circle.dotted",
+        color: StageColor = .slate,
         sortBy: [SortField] = [.priority, .dueDate],
         sortDirection: SortDirection = .ascending,
-        position: Int
+        position: Int,
+        isDefaultIntake: Bool = false,
+        isBlockedStage: Bool = false,
+        isDoneStage: Bool = false
     ) {
         self.id = id
         self.name = name
-        self.status = status
+        self.icon = icon
+        self.color = color
         self.sortBy = sortBy
         self.sortDirection = sortDirection
         self.position = position
+        self.isDefaultIntake = isDefaultIntake
+        self.isBlockedStage = isBlockedStage
+        self.isDoneStage = isDoneStage
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name, icon, color, sortBy, sortDirection, position
+        case isDefaultIntake, isBlockedStage, isDoneStage
+        case status // legacy: pre-stages fixed ColumnStatus
+    }
+
+    /// Legacy fixed statuses, retained only to migrate boards saved before
+    /// columns became user-editable.
+    private enum LegacyStatus: String {
+        case backlog = "Backlog"
+        case inProgress = "In Progress"
+        case blocked = "Blocked"
+        case ready = "Ready"
+        case completed = "Completed"
+
+        var icon: String {
+            switch self {
+            case .backlog: "tray.fill"
+            case .inProgress: "arrow.right.circle.fill"
+            case .blocked: "xmark.octagon.fill"
+            case .ready: "shippingbox.fill"
+            case .completed: "checkmark.circle.fill"
+            }
+        }
+
+        var color: StageColor {
+            switch self {
+            case .backlog: .slate
+            case .inProgress: .blue
+            case .blocked: .red
+            case .ready: .purple
+            case .completed: .green
+            }
+        }
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        position = try c.decode(Int.self, forKey: .position)
+        sortBy = try c.decodeIfPresent([SortField].self, forKey: .sortBy) ?? [.priority, .dueDate]
+        sortDirection = try c.decodeIfPresent(SortDirection.self, forKey: .sortDirection) ?? .ascending
+
+        let legacy = try (c.decodeIfPresent(String.self, forKey: .status)).flatMap(LegacyStatus.init(rawValue:))
+        icon = try c.decodeIfPresent(String.self, forKey: .icon) ?? legacy?.icon ?? "circle.dotted"
+        color = try c.decodeIfPresent(StageColor.self, forKey: .color) ?? legacy?.color ?? .slate
+        isDefaultIntake = try c.decodeIfPresent(Bool.self, forKey: .isDefaultIntake) ?? (legacy == .backlog)
+        isBlockedStage = try c.decodeIfPresent(Bool.self, forKey: .isBlockedStage) ?? (legacy == .blocked)
+        isDoneStage = try c.decodeIfPresent(Bool.self, forKey: .isDoneStage) ?? (legacy == .completed)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(name, forKey: .name)
+        try c.encode(icon, forKey: .icon)
+        try c.encode(color, forKey: .color)
+        try c.encode(sortBy, forKey: .sortBy)
+        try c.encode(sortDirection, forKey: .sortDirection)
+        try c.encode(position, forKey: .position)
+        try c.encode(isDefaultIntake, forKey: .isDefaultIntake)
+        try c.encode(isBlockedStage, forKey: .isBlockedStage)
+        try c.encode(isDoneStage, forKey: .isDoneStage)
     }
 }
 
@@ -91,19 +177,46 @@ struct Board: Codable, Identifiable, Equatable, Sendable {
             }
         }
 
-        // Migration: add any missing columns from defaultOrder
-        let existingStatuses = Set(columns.map(\.status))
-        for status in ColumnStatus.defaultOrder where !existingStatuses.contains(status) {
-            let desiredIndex = ColumnStatus.defaultOrder.firstIndex(of: status) ?? columns.count
-            let insertAt = min(desiredIndex, columns.count)
-            columns.insert(
-                Column(name: status.rawValue, status: status, position: insertAt),
-                at: insertAt
-            )
-            // Reindex positions after insertion
-            for i in columns.indices {
-                columns[i].position = i
+        // Migration: a board must always have the three protected roles, so any
+        // missing role gets a freshly seeded column. Then enforce exactly one
+        // intake column and renumber positions.
+        Self.ensureProtectedColumns(&columns)
+    }
+
+    /// Guarantee exactly one intake, one blocked, and one done column exist,
+    /// inserting defaults for any missing role, then normalize positions.
+    static func ensureProtectedColumns(_ columns: inout [Column]) {
+        columns.sort { $0.position < $1.position }
+
+        if !columns.contains(where: \.isDefaultIntake) {
+            if let i = columns.firstIndex(where: { !$0.isDoneStage && !$0.isBlockedStage }) {
+                columns[i].isDefaultIntake = true
+            } else {
+                columns.insert(
+                    Column(name: "Backlog", icon: "tray.fill", color: .slate, position: 0, isDefaultIntake: true),
+                    at: 0
+                )
             }
+        }
+        if !columns.contains(where: \.isBlockedStage) {
+            columns.append(
+                Column(name: "Blocked", icon: "xmark.octagon.fill", color: .red, position: columns.count, isBlockedStage: true)
+            )
+        }
+        if !columns.contains(where: \.isDoneStage) {
+            columns.append(
+                Column(name: "Completed", icon: "checkmark.circle.fill", color: .green, position: columns.count, isDoneStage: true)
+            )
+        }
+
+        // Keep at most one intake column (first one in order wins).
+        var seenIntake = false
+        for i in columns.indices where columns[i].isDefaultIntake {
+            if seenIntake { columns[i].isDefaultIntake = false } else { seenIntake = true }
+        }
+
+        for i in columns.indices {
+            columns[i].position = i
         }
     }
 
@@ -112,24 +225,28 @@ struct Board: Codable, Identifiable, Equatable, Sendable {
         labels.first { $0.id == id } ?? LabelDefinition(id: id, name: "Unknown", colorName: "gray")
     }
 
-    /// Look up a column by its status, independent of its position in the board.
-    func column(for status: ColumnStatus) -> Column? {
-        columns.first { $0.status == status }
+    /// The column that fulfills a special workflow role, if present.
+    func column(for role: ColumnRole) -> Column? {
+        switch role {
+        case .intake: columns.first(where: \.isDefaultIntake)
+        case .blocked: columns.first(where: \.isBlockedStage)
+        case .done: columns.first(where: \.isDoneStage)
+        }
     }
 
-    /// Number of cards in the column with the given status.
-    func cardCount(for status: ColumnStatus) -> Int {
-        guard let column = column(for: status) else { return 0 }
+    /// Number of cards in the column fulfilling the given role.
+    func cardCount(for role: ColumnRole) -> Int {
+        guard let column = column(for: role) else { return 0 }
         return cards.count(where: { $0.columnId == column.id })
     }
 
-    /// Cards past their due date that aren't in the Completed column.
+    /// Cards past their due date that aren't in the done column.
     var overdueCardCount: Int {
-        let completedId = column(for: .completed)?.id
+        let doneId = column(for: .done)?.id
         let now = Date()
         return cards.count(where: { card in
             guard let due = card.dueDate else { return false }
-            if let completedId, card.columnId == completedId { return false }
+            if let doneId, card.columnId == doneId { return false }
             return due < now
         })
     }
@@ -139,9 +256,13 @@ struct Board: Codable, Identifiable, Equatable, Sendable {
     }
 
     static func defaultColumns() -> [Column] {
-        ColumnStatus.defaultOrder.enumerated().map { index, status in
-            Column(name: status.rawValue, status: status, position: index)
-        }
+        [
+            Column(name: "Backlog", icon: "tray.fill", color: .slate, position: 0, isDefaultIntake: true),
+            Column(name: "In Progress", icon: "arrow.right.circle.fill", color: .blue, position: 1),
+            Column(name: "Blocked", icon: "xmark.octagon.fill", color: .red, position: 2, isBlockedStage: true),
+            Column(name: "Ready", icon: "shippingbox.fill", color: .purple, position: 3),
+            Column(name: "Completed", icon: "checkmark.circle.fill", color: .green, position: 4, isDoneStage: true)
+        ]
     }
 
     /// Get cards for a specific column, sorted by the column's sort rules.

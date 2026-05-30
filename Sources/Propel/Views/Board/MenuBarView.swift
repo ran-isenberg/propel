@@ -14,36 +14,30 @@ struct MenuBarView: View {
 
             Divider()
 
-            // Quick stats
+            // Quick stats, grouped by workflow role across all boards.
             HStack(spacing: 16) {
                 MenuBarStat(
                     icon: "tray",
                     label: "Backlog",
-                    count: cardCount(for: .backlog),
+                    count: viewModel.aggregateRoleCounts.intake,
                     color: .secondary
                 )
                 MenuBarStat(
                     icon: "arrow.right.circle",
-                    label: "In Progress",
-                    count: cardCount(for: .inProgress),
+                    label: "Active",
+                    count: viewModel.aggregateRoleCounts.active,
                     color: .blue
                 )
                 MenuBarStat(
                     icon: "xmark.octagon",
                     label: "Blocked",
-                    count: cardCount(for: .blocked),
+                    count: viewModel.aggregateRoleCounts.blocked,
                     color: .red
-                )
-                MenuBarStat(
-                    icon: "shippingbox",
-                    label: "Ready",
-                    count: cardCount(for: .ready),
-                    color: .purple
                 )
                 MenuBarStat(
                     icon: "checkmark.circle",
                     label: "Done",
-                    count: cardCount(for: .completed),
+                    count: viewModel.aggregateRoleCounts.done,
                     color: .green
                 )
             }
@@ -83,8 +77,8 @@ struct MenuBarView: View {
             }
 
             MenuActionButton(icon: "plus", title: "Quick Add Card") {
-                if let backlog = viewModel.column(for: .backlog) {
-                    viewModel.startCreatingCard(inColumn: backlog.id)
+                if let intake = viewModel.intakeColumn {
+                    viewModel.startCreatingCard(inColumn: intake.id)
                 }
                 activateMainWindow()
             }
@@ -117,10 +111,6 @@ struct MenuBarView: View {
         } else {
             openWindow(id: "main")
         }
-    }
-
-    private func cardCount(for status: ColumnStatus) -> Int {
-        viewModel.aggregateStatusCounts[status] ?? 0
     }
 }
 

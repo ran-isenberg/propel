@@ -20,7 +20,7 @@ struct CardCreationPanel: View {
     @State private var showNewLabelPopover = false
 
     private var availableColumns: [Column] {
-        viewModel.sortedColumns.filter { $0.status != .completed }
+        viewModel.sortedColumns.filter { !$0.isDoneStage }
     }
 
     init(initialColumnId: UUID) {
@@ -110,8 +110,8 @@ struct CardCreationPanel: View {
                             SwiftUI.Label {
                                 Text(col.name)
                             } icon: {
-                                Image(systemName: col.status.headerIcon)
-                                    .foregroundStyle(col.status.headerColor)
+                                Image(systemName: col.icon)
+                                    .foregroundStyle(col.color.swiftUIColor)
                             }
                             .tag(col.id)
                         }

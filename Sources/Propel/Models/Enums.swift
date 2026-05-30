@@ -36,14 +36,14 @@ struct LabelDefinition: Codable, Identifiable, Equatable, Sendable {
             colorName: "blue",
             defaultChecklist: [
                 "Post Structure", "PR", "Merge", "Medium",
-                "LinkedIn Newsletter", "GA", "LinkedIn", "X", "Heroes",
+                "LinkedIn Newsletter", "GA", "LinkedIn", "X", "Heroes"
             ]
         ),
         Self(id: conferenceTalkUUID, name: "Conference Talk", colorName: "purple"),
         Self(id: videoUUID, name: "Video", colorName: "red"),
         Self(id: podcastUUID, name: "Podcast", colorName: "green"),
         Self(id: codeUUID, name: "Code", colorName: "cyan"),
-        Self(id: articleUUID, name: "Article", colorName: "orange"),
+        Self(id: articleUUID, name: "Article", colorName: "orange")
     ]
 
     /// Look up a built-in label by its legacy name (used for migration from the old Label enum).
@@ -79,7 +79,7 @@ struct LabelColor: Identifiable, Sendable {
         Self(name: "brown", color: .brown),
         Self(name: "indigo", color: .indigo),
         Self(name: "mint", color: .mint),
-        Self(name: "teal", color: .teal),
+        Self(name: "teal", color: .teal)
     ]
 }
 
@@ -168,36 +168,47 @@ enum ReminderOffset: String, Codable, CaseIterable, Identifiable, Sendable {
     }
 }
 
-enum ColumnStatus: String, Codable, CaseIterable, Identifiable, Sendable {
-    case backlog = "Backlog"
-    case inProgress = "In Progress"
-    case blocked = "Blocked"
-    case ready = "Ready"
-    case completed = "Completed"
+/// The role a column plays in the board workflow. The three roles below have
+/// special behavior (intake for new/recurring cards, blocked for the attention
+/// list, done for completion semantics) and their columns cannot be deleted.
+enum ColumnRole: String, Codable, CaseIterable, Identifiable, Sendable {
+    case intake
+    case blocked
+    case done
+
+    var id: String { rawValue }
+}
+
+/// The palette used to color a board column. Independent from label colors so
+/// the two concepts can evolve separately.
+enum StageColor: String, Codable, CaseIterable, Identifiable, Sendable {
+    case slate
+    case blue
+    case purple
+    case red
+    case green
+    case orange
+    case yellow
+    case teal
+    case pink
+    case indigo
 
     var id: String { rawValue }
 
-    static var defaultOrder: [Self] {
-        [.backlog, .inProgress, .blocked, .ready, .completed]
-    }
+    var displayName: String { rawValue.capitalized }
 
-    var headerColor: Color {
+    var swiftUIColor: Color {
         switch self {
-        case .backlog: .secondary
-        case .inProgress: .blue
-        case .blocked: .red
-        case .ready: .purple
-        case .completed: .green
-        }
-    }
-
-    var headerIcon: String {
-        switch self {
-        case .backlog: "circle.dotted"
-        case .inProgress: "circle.lefthalf.filled"
-        case .blocked: "xmark.circle.fill"
-        case .ready: "shippingbox.fill"
-        case .completed: "checkmark.circle.fill"
+        case .slate: .secondary
+        case .blue: .blue
+        case .purple: .purple
+        case .red: .red
+        case .green: .green
+        case .orange: .orange
+        case .yellow: .yellow
+        case .teal: .teal
+        case .pink: .pink
+        case .indigo: .indigo
         }
     }
 }

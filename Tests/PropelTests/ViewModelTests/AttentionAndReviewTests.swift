@@ -52,7 +52,7 @@ struct AttentionViewTests {
 
     @Test func completedCardsExcludedFromAttention() throws {
         let vm = makeViewModel()
-        let completedId = try #require(vm.column(for: .completed)).id
+        let completedId = try #require(vm.column(for: .done)).id
         let yesterday = try #require(Calendar.current.date(byAdding: .day, value: -1, to: Date()))
         vm.board.cards.append(Card(
             title: "Done overdue",
@@ -107,7 +107,7 @@ struct WeeklyReviewTests {
 
     @Test func reviewDataCountsCompletedThisWeek() throws {
         let vm = makeViewModel()
-        let completedId = try #require(vm.column(for: .completed)).id
+        let completedId = try #require(vm.column(for: .done)).id
         vm.board.cards.append(Card(
             title: "Done today",
             columnId: completedId,

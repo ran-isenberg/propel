@@ -59,7 +59,7 @@ struct CardContextMenuModifier: ViewModifier {
                 Divider()
 
                 // Block/Unblock
-                if let blockedColumn = viewModel.column(for: .blocked) {
+                if let blockedColumn = viewModel.blockedColumn {
                     if card.columnId == blockedColumn.id {
                         Button("Unblock") {
                             viewModel.toggleCardBlocked(card.id)

@@ -288,7 +288,7 @@ struct AutoArchiveTests {
 
     @Test func recentCompletedCardsAreVisible() throws {
         let vm = makeViewModel()
-        let completedColumn = try #require(vm.column(for: .completed))
+        let completedColumn = try #require(vm.column(for: .done))
         let completedId = completedColumn.id
         vm.board.cards.append(Card(
             title: "Just done",
@@ -303,7 +303,7 @@ struct AutoArchiveTests {
 
     @Test func oldCompletedCardsAreHidden() throws {
         let vm = makeViewModel()
-        let completedColumn = try #require(vm.column(for: .completed))
+        let completedColumn = try #require(vm.column(for: .done))
         let completedId = completedColumn.id
         let tenDaysAgo = try #require(Calendar.current.date(byAdding: .day, value: -10, to: Date()))
         vm.board.cards.append(Card(
@@ -319,7 +319,7 @@ struct AutoArchiveTests {
 
     @Test func disabledAutoArchiveShowsAll() throws {
         let vm = makeViewModel()
-        let completedColumn = try #require(vm.column(for: .completed))
+        let completedColumn = try #require(vm.column(for: .done))
         let completedId = completedColumn.id
         let oldDate = try #require(Calendar.current.date(byAdding: .day, value: -30, to: Date()))
         vm.board.cards.append(Card(

@@ -59,6 +59,8 @@ struct ContentView: View {
                         } label: {
                             Image(systemName: "xmark.circle.fill")
                                 .foregroundStyle(.secondary)
+                                .frame(width: 24, height: 24)
+                                .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                     }
@@ -86,6 +88,9 @@ struct ContentView: View {
                             }
                         }
                         .foregroundStyle(boardViewModel.attentionCards.isEmpty ? Color.green : Color.orange)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 3)
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .help(boardViewModel.attentionCards.isEmpty ? "All clear" : "Cards needing attention")
@@ -160,8 +165,8 @@ struct ContentView: View {
             ToolbarItem(placement: .automatic) {
                 Button {
                     if activeTab == .board {
-                        if let backlogColumn = boardViewModel.column(for: .backlog) {
-                            boardViewModel.startCreatingCard(inColumn: backlogColumn.id)
+                        if let intakeColumn = boardViewModel.intakeColumn {
+                            boardViewModel.startCreatingCard(inColumn: intakeColumn.id)
                         }
                     }
                 } label: {
