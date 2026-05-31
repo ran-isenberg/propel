@@ -190,6 +190,26 @@ struct MenuBarBadgeTests {
         await vm.refreshBoardsSummary()
         #expect(vm.menuBarBadgeCount == 0)
     }
+
+    @Test func aggregateRoleCountsGroupByRole() async throws {
+        let vm = try await makeViewModel()
+        let intakeId = try #require(vm.column(for: .intake)).id
+        let blockedId = try #require(vm.column(for: .blocked)).id
+        let doneId = try #require(vm.column(for: .done)).id
+        let activeId = try #require(vm.sortedColumns.first { !$0.isProtected }).id
+
+        vm.board.cards.append(Card(title: "I", columnId: intakeId, labelId: LabelDefinition.blogPostId))
+        vm.board.cards.append(Card(title: "A1", columnId: activeId, labelId: LabelDefinition.blogPostId))
+        vm.board.cards.append(Card(title: "A2", columnId: activeId, labelId: LabelDefinition.blogPostId))
+        vm.board.cards.append(Card(title: "B", columnId: blockedId, labelId: LabelDefinition.blogPostId))
+        vm.board.cards.append(Card(title: "D", columnId: doneId, labelId: LabelDefinition.blogPostId))
+        await vm.refreshBoardsSummary()
+
+        #expect(vm.aggregateRoleCounts.intake == 1)
+        #expect(vm.aggregateRoleCounts.active == 2)
+        #expect(vm.aggregateRoleCounts.blocked == 1)
+        #expect(vm.aggregateRoleCounts.done == 1)
+    }
 }
 
 // MARK: - Emoji Support Tests

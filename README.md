@@ -10,20 +10,23 @@ Kanban-style task management for macOS. Move fast, stay focused.
 
 Propel is a native macOS Kanban board app built with SwiftUI. It's designed for personal task management with a focus on content creation workflows (blog posts, conference talks, videos, podcasts).
 
+![Propel board](example.png)
+
 ## Features
 
 ### Board Management
 
-- **4-column Kanban board** — Backlog, In Progress, Blocked, Completed
+- **Customizable columns** — rename, recolor, change icon, reorder, add, and delete columns from the **Manage Columns** editor
+- **Protected workflow roles** — every board keeps an intake (Backlog), a Blocked, and a done (Completed) column; these can be renamed/recolored/reordered but not deleted, so the workflow always stays intact
+- **Multiple boards** — manage 3 independent boards, each with its own columns, cards, and labels; quick-switch with **⌘1 / ⌘2 / ⌘3**, drag to reorder, rename, delete, or import a board file
 - **Drag-and-drop** cards between columns
 - **Collapsible columns** to focus on what matters
 - **Per-column sort configuration** — sort by priority, due date, or creation date
-- **Status-driven color signals** — visual column indicators (blue for active, red for blocked, green for done)
 
 ### Cards
 
-- **Labels** — Blog Post, Conference Talk, Video, Podcast (color-coded)
-- **Priority levels** — Urgent, Normal, Low with visual badges
+- **Custom labels** — define your own labels per board with a name and color (seeded with Blog Post, Conference Talk, Video, Podcast, Code, Article)
+- **Priority levels** — Urgent, High, Normal, Low with visual badges
 - **Due dates** with overdue tracking
 - **Checklists** with progress bars
 - **Rich descriptions** with clickable link detection and YouTube/Vimeo video embeds
@@ -43,7 +46,7 @@ Propel is a native macOS Kanban board app built with SwiftUI. It's designed for 
 ### Productivity
 
 - **Quick capture** (Ctrl+Shift+N) — global hotkey to create a new card
-- **Menu bar presence** — quick stats and badge count for overdue/blocked items
+- **Menu bar presence** — quick stats grouped by role (backlog / active / blocked / done) across all boards, plus a badge count for overdue items
 - **Notes tab** — scratchpad with full-text search
 - **Keyboard shortcuts** — Cmd+N (new card), Cmd+F (search), Escape (close panel)
 
@@ -60,9 +63,9 @@ Propel is a native macOS Kanban board app built with SwiftUI. It's designed for 
 Sources/Propel/
 ├── PropelApp.swift              # App entry point, scenes, menu bar, About window
 ├── Models/
-│   ├── Board.swift              # Board & Column models, card sorting logic
+│   ├── Board.swift              # Board & Column models, column roles, legacy migration, card sorting
 │   ├── Card.swift               # Card & ChecklistItem models, recurring instance creation
-│   ├── Enums.swift              # Label, Priority, SortField, Frequency, ColumnStatus enums
+│   ├── Enums.swift              # LabelDefinition, Priority, SortField, Frequency, ColumnRole, StageColor
 │   ├── Note.swift               # Note & NotesStore models
 │   └── RecurrenceRule.swift     # Recurrence date calculation
 ├── ViewModels/
@@ -74,9 +77,12 @@ Sources/Propel/
 │   ├── Board/
 │   │   ├── BoardView.swift      # Horizontal column layout
 │   │   ├── ColumnView.swift     # Column with header, collapse, drag-drop, celebration
+│   │   ├── ColumnEditorView.swift # Manage Columns: add/rename/recolor/icon/reorder/delete
 │   │   ├── CardView.swift       # Card face with label/priority badges, checklist progress
 │   │   ├── CardContextMenu.swift # Right-click menu for cards
-│   │   ├── FilterBar.swift      # Label & priority filters, weekly review button
+│   │   ├── FilterBar.swift      # Label & priority filters, Manage Columns/Labels, weekly review
+│   │   ├── LabelManagementView.swift # Manage Labels: add/rename/recolor/delete
+│   │   ├── BoardSwitcher.swift  # Multi-board quick switch, reorder, rename, import
 │   │   ├── ColumnSortConfig.swift # Per-column sort field picker
 │   │   ├── CompletionCelebration.swift # Particle animation overlay
 │   │   ├── AttentionView.swift  # Overdue/blocked/due-soon card highlights

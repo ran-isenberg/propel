@@ -234,12 +234,6 @@ struct Board: Codable, Identifiable, Equatable, Sendable {
         }
     }
 
-    /// Number of cards in the column fulfilling the given role.
-    func cardCount(for role: ColumnRole) -> Int {
-        guard let column = column(for: role) else { return 0 }
-        return cards.count(where: { $0.columnId == column.id })
-    }
-
     /// Cards past their due date that aren't in the done column.
     var overdueCardCount: Int {
         let doneId = column(for: .done)?.id

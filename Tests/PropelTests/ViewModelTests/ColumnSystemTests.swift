@@ -87,6 +87,14 @@ struct ColumnSystemTests {
         #expect(card?.completedAt != nil)
     }
 
+    @Test func availableReplacementColumnsExcludesSelf() throws {
+        let vm = makeViewModel()
+        let target = try #require(vm.sortedColumns.first { !$0.isProtected })
+        let options = vm.availableReplacementColumns(excluding: target.id)
+        #expect(options.contains { $0.id == target.id } == false)
+        #expect(options.count == vm.board.columns.count - 1)
+    }
+
     @Test func moveColumnsReindexesPositions() {
         let vm = makeViewModel()
         vm.moveColumns(fromOffsets: IndexSet(integer: 0), toOffset: 3)

@@ -337,6 +337,41 @@ struct DefaultColumnTests {
         #expect(intake?.isProtected == true)
         #expect(plain?.isProtected == false)
     }
+
+    @Test func ensureProtectedColumnsDedupesMultipleIntake() {
+        var columns = [
+            Column(name: "A", position: 0, isDefaultIntake: true),
+            Column(name: "B", position: 1, isDefaultIntake: true),
+            Column(name: "Blocked", position: 2, isBlockedStage: true),
+            Column(name: "Done", position: 3, isDoneStage: true)
+        ]
+        Board.ensureProtectedColumns(&columns)
+        #expect(columns.count(where: \.isDefaultIntake) == 1)
+        // The first intake column in order wins.
+        #expect(columns.first(where: \.isDefaultIntake)?.name == "A")
+    }
+
+    @Test func ensureProtectedColumnsReassignsIntakeWhenNonePresent() {
+        var columns = [
+            Column(name: "Work", position: 0),
+            Column(name: "Done", position: 1, isDoneStage: true),
+            Column(name: "Blocked", position: 2, isBlockedStage: true)
+        ]
+        Board.ensureProtectedColumns(&columns)
+        #expect(columns.count(where: \.isDefaultIntake) == 1)
+        // Intake is assigned to a plain working column, not done/blocked.
+        #expect(columns.first(where: \.isDefaultIntake)?.name == "Work")
+    }
+
+    @Test func ensureProtectedColumnsInsertsMissingRolesAndReindexes() {
+        var columns = [Column(name: "Backlog", position: 0, isDefaultIntake: true)]
+        Board.ensureProtectedColumns(&columns)
+        #expect(columns.count(where: \.isBlockedStage) == 1)
+        #expect(columns.count(where: \.isDoneStage) == 1)
+        for (index, column) in columns.enumerated() {
+            #expect(column.position == index)
+        }
+    }
 }
 
 // MARK: - Note Tests
