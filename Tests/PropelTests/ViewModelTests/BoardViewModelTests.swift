@@ -310,6 +310,40 @@ struct BoardViewModelTests {
         #expect(vm.isCreatingCard == false)
     }
 
+    @Test func toggleCardSelectionOpensThenCloses() {
+        let vm = makeViewModel()
+        let colId = vm.board.columns[0].id
+        vm.createCard(title: "Test", labelId: LabelDefinition.blogPostId, priority: .normal, inColumn: colId)
+        let cardId = vm.board.cards[0].id
+        vm.closeSidePanel()
+
+        // First click opens the panel for the card.
+        vm.toggleCardSelection(cardId)
+        #expect(vm.selectedCardId == cardId)
+        #expect(vm.showSidePanel == true)
+
+        // Second click on the same card closes it.
+        vm.toggleCardSelection(cardId)
+        #expect(vm.selectedCardId == nil)
+        #expect(vm.showSidePanel == false)
+    }
+
+    @Test func toggleCardSelectionSwitchesBetweenCards() {
+        let vm = makeViewModel()
+        let colId = vm.board.columns[0].id
+        vm.createCard(title: "A", labelId: LabelDefinition.blogPostId, priority: .normal, inColumn: colId)
+        vm.createCard(title: "B", labelId: LabelDefinition.videoId, priority: .normal, inColumn: colId)
+        let a = vm.board.cards[0].id
+        let b = vm.board.cards[1].id
+
+        vm.toggleCardSelection(a)
+        #expect(vm.selectedCardId == a)
+        // Clicking a different card switches selection (stays open).
+        vm.toggleCardSelection(b)
+        #expect(vm.selectedCardId == b)
+        #expect(vm.showSidePanel == true)
+    }
+
     // MARK: - Checklist Add & Reorder
 
     @Test func addChecklistItemToNonBlogPostCard() {

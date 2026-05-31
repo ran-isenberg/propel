@@ -82,7 +82,7 @@ struct CardView: View {
         )
         .contentShape(Rectangle())
         .onTapGesture {
-            viewModel.selectCard(card.id)
+            viewModel.toggleCardSelection(card.id)
         }
     }
 }

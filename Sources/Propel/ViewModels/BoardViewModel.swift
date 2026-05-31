@@ -627,9 +627,11 @@ final class BoardViewModel {
             moveCard(cardId, toColumn: blockedColumn.id)
         }
     }
+}
 
-    // MARK: - Side Panel
+// MARK: - Side Panel
 
+extension BoardViewModel {
     func startCreatingCard(inColumn columnId: UUID) {
         selectedCardId = nil
         creationTargetColumnId = columnId
@@ -640,6 +642,15 @@ final class BoardViewModel {
         isCreatingCard = false
         creationTargetColumnId = nil
         selectedCardId = cardId
+    }
+
+    /// Open the side panel for a card, or close it if that card is already open.
+    func toggleCardSelection(_ cardId: UUID) {
+        if selectedCardId == cardId, !isCreatingCard {
+            closeSidePanel()
+        } else {
+            selectCard(cardId)
+        }
     }
 
     func closeSidePanel() {
